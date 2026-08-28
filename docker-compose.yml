@@ -1,0 +1,42 @@
+# Local full-stack dev environment — a real MongoDB instead of the
+# in-memory mongomock harness used for one-off testing. Run with:
+#   docker compose up --build
+# Backend on :8000, frontend on :3000, Mongo on :27017 (not exposed outside
+# the compose network by default — remove the ports mapping if you don't
+# need host access to it directly).
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides backend/.env's MONGO_URL so the container reaches the
+      # `mongo` service by its compose network name, not localhost.
+      MONGO_URL: mongodb://mongo:27017
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_BACKEND_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

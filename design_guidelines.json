@@ -1,0 +1,126 @@
+{
+  "theme": "hybrid_high_contrast",
+  "app_name": "THE TEACHKIT",
+  "target_audience": "English teachers in France (Ages 10-12 curriculum)",
+  "typography": {
+    "headings": {
+      "font_family": "Clash Display, sans-serif",
+      "fallback": "Cabinet Grotesk, sans-serif",
+      "usage": "H1, H2, H3, large marketing text, hero sections, dashboard widget titles",
+      "style": "Bold, tight tracking, editorial sharpness. Avoid regular weights for major headings."
+    },
+    "body": {
+      "font_family": "Satoshi, sans-serif",
+      "fallback": "IBM Plex Sans, sans-serif",
+      "usage": "Body text, paragraphs, data tables, UI labels, small details",
+      "style": "Clean, highly readable, neutral to balance the bold headings. Slight tracking on uppercase labels."
+    },
+    "rules": [
+      "NEVER use Inter, Space Grotesk, Roboto, or standard defaults.",
+      "Headings > 32px MUST use tracking-tight.",
+      "Use uppercase labels (tracking-widest, text-xs) for subheadings/categories (e.g., 'WEEK 12', 'GRAMMAR FOCUS')."
+    ]
+  },
+  "colors": {
+    "background": {
+      "shell": "#0A0A0A",
+      "surface": "#FFFFFF",
+      "surface_alt": "#F5F5F5",
+      "marketing_hero": "#0A0A0A"
+    },
+    "text": {
+      "on_dark": "#FAFAFA",
+      "on_dark_muted": "#A1A1AA",
+      "on_light": "#0A0A0A",
+      "on_light_muted": "#52525B"
+    },
+    "accent": {
+      "primary": "#A6E22E",
+      "primary_hover": "#8BC926",
+      "primary_foreground": "#0A0A0A"
+    },
+    "border": {
+      "dark": "#27272A",
+      "light": "#E4E4E7",
+      "primary": "#A6E22E"
+    },
+    "rules": [
+      "Avoid gray gradients. Use flat, bold color blocks.",
+      "Lime green is for primary actions, active states (like current week), and sharp accents.",
+      "Dashboard cards MUST be white or off-white (#FFFFFF / #FAFAFA) sitting on a deep black (#0A0A0A) background canvas for an editorial magazine feel."
+    ]
+  },
+  "visual_enhancers": {
+    "surfaces": "White cards on black backgrounds. Add sharp 1px borders (border-black on light elements, border-lime on active elements).",
+    "corners": "Sharp (rounded-none) or very subtle (rounded-sm/rounded-md maximum). No overly bubbly rounded corners (avoid rounded-2xl+ on cards).",
+    "textures": "Add a subtle SVG noise/grain texture overlay specifically to the black background areas (hero section, dark empty states) to give a tactile, premium editorial feel.",
+    "glassmorphism": "Used ONLY for sticky headers. Example: backdrop-blur-xl bg-black/70 border-b border-zinc-800."
+  },
+  "grids_and_layouts": {
+    "dashboard_bento": "Use dense bento-box layouts for the syllabus generator overview. 32-week timeline should feel like an editorial table of contents.",
+    "spacing": "Generous spacing. Use p-6, p-8 on white cards so the typography has maximum breathing room. Avoid cramped layouts.",
+    "timeline": "The 32-week syllabus should use a horizontal scrolling strip or a sharp CSS grid matrix. The 'current week' must auto-highlight using the lime green accent (bg-[#A6E22E] text-black) and an assertive 2px border.",
+    "alignment": "Left-align dense text and tables. Limit center-alignment to hero titles only."
+  },
+  "components": {
+    "general": "Use Shadcn UI components but heavily override their defaults to match the sharp, editorial aesthetic.",
+    "buttons": "Pill-shaped (rounded-full) or completely sharp (rounded-none). Primary buttons must be solid #A6E22E with black text. Hover state: slight lift (-translate-y-[1px]) and shadow-lg shadow-lime-400/20.",
+    "cards": "bg-white text-black border border-zinc-200. No heavy dropshadows, rely on the stark color contrast against the black app shell.",
+    "forms": "Inputs should have sharp borders. Focus states must ring with #A6E22E.",
+    "badges": "Use sharp, high-contrast badges for 'Grammar', 'Vocabulary', 'Materials'."
+  },
+  "motion": {
+    "micro_interactions": "Hover states on all interactive elements. Use Framer Motion for subtle page transitions (fade and slide-up).",
+    "lists": "Use stagger animation on the 32-week syllabus timeline items so they cascade into view smoothly.",
+    "rules": "Disable all animations if prefers-reduced-motion is active. Keep transitions under 0.3s for speed."
+  },
+  "accessibility": {
+    "contrast": "Ensure the lime green (#A6E22E) vs white background maintains > 3:1 for large UI components, or use dark text over lime green.",
+    "testing": "All interactive and key informational elements MUST include a `data-testid` attribute (e.g., `data-testid=\"syllabus-generate-btn\"`, `data-testid=\"week-4-card\"`).",
+    "focus": "Always use focus:outline-none focus:ring-2 focus:ring-[#A6E22E] focus:ring-offset-2 focus:ring-offset-[#0A0A0A] for accessibility."
+  },
+  "media_and_assets": {
+    "logo_path": "/app/frontend/public/teachkit-logo.png",
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1575024357670-2b5164f470c3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjB0ZWFjaGVyJTIwbGFwdG9wfGVufDB8fHx8MTc4NjYxOTEyNXww&ixlib=rb-4.1.0&q=85",
+        "description": "Modern teacher using laptop",
+        "category": "hero_or_marketing"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1567057420215-0afa9aa9253a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwyfHxlbmdsaXNoJTIwY2xhc3Nyb29tJTIwc3R1ZGVudHN8ZW58MHx8fHwxNzg2NjE5MTI1fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Students writing in class",
+        "category": "feature_section_classroom"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Initialize Tailwind CSS and ensure the color palette (black, white, zinc-900, zinc-100, and lime-400/#A6E22E) is set up in tailwind.config.js.",
+    "Add 'Clash Display' and 'Satoshi' fonts (via CDN or local) and set them as default sans families in Tailwind.",
+    "Use standard JS/JSX components, NOT TSX. Ensure all file extensions and imports reflect this.",
+    "Create a marketing Landing Page and a separate Dashboard layout.",
+    "The Dashboard shell (sidebar/topbar background) MUST be black/dark-zinc, while the main content area/cards MUST be stark white for extreme editorial contrast.",
+    "Build the 32-week syllabus generator page using a bento grid or timeline. The 'Current Week' must dynamically highlight based on standard school calendar.",
+    "Ensure PDF export functionality is considered in the UI (e.g., dedicated 'Export PDF' button on lesson detail pages).",
+    "Implement JWT auth mockup and onboarding flow capturing teacher profile data.",
+    "Use Shadcn UI for dropdowns, dialogs, and selects, but strip any 'default SaaS' soft shadows and apply the sharp, high-contrast visual rules.",
+    "DO NOT use raw HTML <select> or <input type='date'>. Use Shadcn components."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid the 'AI slop' aesthetic. Make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) for sticky navs only.",
+    "You MUST NOT apply universal transition. Eg: transition: all. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; }.",
+    "Always use modern button styles (sharp corners or pill-shaped) with interaction animations.",
+    "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons. Use standard icon libraries (Lucide/Phosphor).",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, custom cursors, and loading animations separate good from extraordinary.",
+    "Prioritize using pre-existing components from src/components/ui.",
+    "Use `sonner` for toast notifications.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute (kebab-case, role-based)."
+  ]
+}
