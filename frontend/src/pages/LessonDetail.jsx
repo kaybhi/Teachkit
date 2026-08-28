@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import api, { getErrorMessage, detailToMessage } from "@/lib/api";
@@ -174,7 +174,7 @@ export default function LessonDetail() {
     }
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await api.get("/syllabus/active");
@@ -186,9 +186,9 @@ export default function LessonDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [weekNum]);
 
-  useEffect(() => { load(); }, [weekNum]);
+  useEffect(() => { load(); }, [load]);
 
   const save = async () => {
     setSaving(true);
