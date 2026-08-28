@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import json
@@ -35,7 +36,9 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
+# tlsCAFile pinned to certifi's bundle rather than the OS default — python:3.11-slim's
+# system CA store causes a TLSV1_ALERT_INTERNAL_ERROR handshake failure against Atlas.
+client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
 db = client[os.environ['DB_NAME']]
 
 # App

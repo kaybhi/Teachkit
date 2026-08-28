@@ -2,8 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps for bcrypt/cryptography wheels on slim images.
-RUN apt-get update && apt-get install -y --no-install-recommends gcc \
+# gcc: needed for bcrypt/cryptography wheels on slim images.
+# ca-certificates: slim's default CA store causes a TLS handshake failure
+# against MongoDB Atlas — refreshed explicitly rather than relying on it.
+RUN apt-get update && apt-get install -y --no-install-recommends gcc ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
