@@ -1,7 +1,8 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Response, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import certifi
+import stripe
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import json
@@ -16,7 +17,7 @@ import jwt as pyjwt
 from datetime import datetime, timezone, timedelta
 
 from curriculum import generate_full_syllabus, _vocab_string_to_list
-from curriculum_data import LEVELS_BY_ID, LEVELS_BY_CLASS_TYPE, EXERCISE_TYPES, SPECIAL_TOPICS
+from curriculum_data import LEVELS_BY_ID, LEVELS_BY_CLASS_TYPE, EXERCISE_TYPES, SPECIAL_TOPICS, BAND_CONSTRAINTS
 from curriculum_lookup import get_curriculum_for_week, get_week_info
 import docx_builder as docx
 from prompt_builders import (
@@ -40,6 +41,14 @@ mongo_url = os.environ['MONGO_URL']
 # system CA store causes a TLSV1_ALERT_INTERNAL_ERROR handshake failure against Atlas.
 client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
 db = client[os.environ['DB_NAME']]
+
+# Stripe — STRIPE_SECRET_KEY unset locally is fine (billing routes simply
+# error if actually called); required once billing goes live.
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PRICE_MONTHLY = os.environ.get('STRIPE_PRICE_ID_MONTHLY', '')
+STRIPE_PRICE_ANNUAL = os.environ.get('STRIPE_PRICE_ID_ANNUAL', '')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://theteachkit.com')
 
 # App
 app = FastAPI(title="THE TEACHKIT API")
@@ -175,6 +184,42 @@ def _check_ai_rate_limit(user_id: str):
     timestamps.append(now)
 
 
+# ---------- Subscription tiers ----------
+# Free tier gets a real, working (if reduced) product — not a locked demo —
+# so a teacher can judge output quality before paying. Pro is the full,
+# already-built feature set from before pricing existed; nothing was held
+# back from Pro specifically for this, it's just what "unlocked" means here.
+FREE_TIER_SKILLS = ["Speaking", "Listening"]
+FREE_TIER_MAX_EXERCISE_TYPES = 2
+
+
+def is_pro(current: dict) -> bool:
+    return current.get("subscription_tier") == "pro"
+
+
+def cap_sheets_for_band(sheet_letters: list, exercise_types: list, band: int) -> tuple:
+    """CEFR-band sheet cap — independent of subscription tier, applies to
+    Pro accounts too. Protects against cognitive overload for young/lower
+    bands (ported from the local engine's capSheetsForBand, 2026-09-18):
+    band 0-1 max 1 sheet, band 2-3 max 2, band 4 max 3 — regardless of how
+    many the subscription tier or the request would otherwise allow. Skill
+    sheets are trimmed first (kept in existing order), exercise-type sheets
+    fill any remaining room."""
+    max_sheets = BAND_CONSTRAINTS[band]["max_sheets"]
+    capped_letters = sheet_letters[:max_sheets]
+    remaining = max(0, max_sheets - len(capped_letters))
+    capped_exercise_types = exercise_types[:remaining]
+    return capped_letters, capped_exercise_types
+
+
+def require_pro(current: dict, feature: str):
+    if not is_pro(current):
+        raise HTTPException(
+            status_code=403,
+            detail=f"{feature} is a Pro feature. Upgrade to unlock it — see /plans.",
+        )
+
+
 # ---------- Routes ----------
 @api_router.get("/")
 async def root():
@@ -201,6 +246,8 @@ async def signup(data: SignupInput):
         "holiday_zone": "none",
         "family_emails": [],
         "onboarded": False,
+        "subscription_tier": "free",
+        "stripe_customer_id": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(user_doc)
@@ -236,6 +283,75 @@ async def update_profile(data: ProfileUpdate, current=Depends(get_current_user))
         await db.users.update_one({"id": current["id"]}, {"$set": update_fields})
     user = await db.users.find_one({"id": current["id"]}, {"_id": 0, "password_hash": 0})
     return user
+
+
+# ---------- Billing ----------
+class CheckoutInput(BaseModel):
+    plan: str  # "monthly" or "annual"
+
+
+@api_router.post("/billing/create-checkout-session")
+async def create_checkout_session(data: CheckoutInput, current=Depends(get_current_user)):
+    price_id = {"monthly": STRIPE_PRICE_MONTHLY, "annual": STRIPE_PRICE_ANNUAL}.get(data.plan)
+    if not price_id:
+        raise HTTPException(status_code=400, detail="plan must be 'monthly' or 'annual'")
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            customer_email=current["email"],
+            client_reference_id=current["id"],
+            metadata={"user_id": current["id"]},
+            success_url=f"{FRONTEND_URL}/dashboard?checkout=success",
+            cancel_url=f"{FRONTEND_URL}/plans?checkout=cancelled",
+        )
+    except Exception as e:
+        logger.error(f"Stripe checkout session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not start checkout — please try again.")
+    return {"checkout_url": session.url}
+
+
+@api_router.post("/billing/portal")
+async def create_billing_portal_session(current=Depends(get_current_user)):
+    user = await db.users.find_one({"id": current["id"]}, {"_id": 0})
+    customer_id = (user or {}).get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="No active subscription found.")
+    session = stripe.billing_portal.Session.create(customer=customer_id, return_url=f"{FRONTEND_URL}/plans")
+    return {"portal_url": session.url}
+
+
+@api_router.post("/billing/webhook")
+async def stripe_webhook(request: Request):
+    """Stripe calls this directly — no auth header, verified via signature
+    instead. Keeps subscription_tier in sync with the actual Stripe state
+    rather than trusting the frontend's checkout redirect alone (a user
+    closing the tab before redirect shouldn't be able to skip payment)."""
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except (ValueError, stripe.error.SignatureVerificationError):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    event_type = event["type"]
+    obj = event["data"]["object"]
+
+    if event_type == "checkout.session.completed":
+        user_id = obj.get("client_reference_id") or (obj.get("metadata") or {}).get("user_id")
+        customer_id = obj.get("customer")
+        if user_id:
+            await db.users.update_one(
+                {"id": user_id},
+                {"$set": {"subscription_tier": "pro", "stripe_customer_id": customer_id}},
+            )
+    elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
+        customer_id = obj.get("customer")
+        tier = "pro" if obj.get("status") in ("active", "trialing") else "free"
+        await db.users.update_one({"stripe_customer_id": customer_id}, {"$set": {"subscription_tier": tier}})
+
+    return {"received": True}
 
 
 # ---------- Syllabus ----------
@@ -462,6 +578,13 @@ async def _generate_lesson_pack(
     extension_activity = bool(current.get("extension_activity", True))
     exercise_types = [k for k in (exercise_types or []) if k in _VALID_EXERCISE_TYPES]
 
+    sheet_letters = _SHEET_LETTERS
+    if not is_pro(current):
+        sheet_letters = [(letter, title) for letter, title in _SHEET_LETTERS if title in FREE_TIER_SKILLS]
+        exercise_types = exercise_types[:FREE_TIER_MAX_EXERCISE_TYPES]
+
+    sheet_letters, exercise_types = cap_sheets_for_band(sheet_letters, exercise_types, level["band"])
+
     script_prompt = build_script_prompt(
         level, week_num, curriculum, skills, duration, student_count, activity_types, extension_activity=extension_activity
     )
@@ -505,12 +628,12 @@ async def _generate_lesson_pack(
     results = await asyncio.gather(
         gen_script(),
         gen_extension(),
-        *[gen_sheet(letter, title) for letter, title in _SHEET_LETTERS],
+        *[gen_sheet(letter, title) for letter, title in sheet_letters],
         *[gen_exercise_sheet(key) for key in exercise_types],
     )
     teacher_script, extension = results[0], results[1]
-    sheets = results[2:2 + len(_SHEET_LETTERS)]
-    exercise_sheets = results[2 + len(_SHEET_LETTERS):]
+    sheets = results[2:2 + len(sheet_letters)]
+    exercise_sheets = results[2 + len(sheet_letters):]
 
     return {
         "teacher_script": teacher_script,
@@ -577,6 +700,7 @@ async def export_docx(syllabus_id: str, week_num: int, doc: str = "script", curr
     """Server-side .docx export — the validated engine's exact zero-repetition
     3-document split (Teacher's Script / Activity Sheets / Answer Key), ported
     via docx_builder.py rather than the old client-side jsPDF pipeline."""
+    require_pro(current, ".docx export")
     if doc not in ("script", "sheets", "answerkey"):
         raise HTTPException(status_code=400, detail="doc must be one of: script, sheets, answerkey")
 
@@ -701,6 +825,7 @@ async def _batch_worker(syllabus_id: str, user_id: str, weeks_to_do: list):
 
 @api_router.post("/syllabus/{syllabus_id}/batch-enrich")
 async def batch_enrich(syllabus_id: str, current=Depends(get_current_user)):
+    require_pro(current, "Batch generation")
     # Charged once per batch job here, not per week — the background worker
     # itself isn't behind a request/rate-limit context.
     _check_ai_rate_limit(current["id"])

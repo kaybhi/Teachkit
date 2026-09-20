@@ -11,6 +11,7 @@ import Profile from "@/pages/Profile";
 import Onboarding from "@/pages/Onboarding";
 import SharedSyllabus from "@/pages/SharedSyllabus";
 import Gallery from "@/pages/Gallery";
+import Plans from "@/pages/Plans";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ function App() {
             <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
             <Route path="/week/:week" element={<Protected><LessonDetail /></Protected>} />
             <Route path="/profile" element={<Protected><Profile /></Protected>} />
+            <Route path="/plans" element={<Protected><Plans /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

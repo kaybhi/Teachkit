@@ -160,6 +160,209 @@ CM2_CURRICULUM = [
     {"week": 32, "period": "P5", "theme": "End of year assessment", "vocab": "all CM2 content", "grammar": "A1 oral task + short written task", "class_type": "Assessment"},
 ]
 
+# ============================================================
+# SCHOOL WEEKLY CURRICULA — one per band-group, ported from the local
+# lesson-planner engine (index.html, 2026-09-18) after a real 5ème class
+# was found stuck on "Present Simple vs Continuous, Adverbs of Frequency,
+# Be/Have Traps" for 7 straight weeks — every school level except CM2 had
+# only a flat block-level theme string, handed to every week (and every
+# grade sharing that tier) unchanged. Real teacher rule: a topic runs for
+# at most 2 classes before moving on.
+#
+# build_weekly_curriculum() raises immediately if any topic exceeds 2 weeks
+# or the total doesn't sum to 32 — a hard structural guarantee, not a
+# convention that can silently drift the way the old flat strings did.
+# ============================================================
+def build_weekly_curriculum(topics: list) -> list:
+    rows = []
+    week = 1
+    for t in topics:
+        span = t.get("weeks", 2)
+        if span > 2:
+            raise ValueError(f'Curriculum topic "{t["theme"]}" spans {span} weeks — max is 2')
+        for _ in range(span):
+            rows.append({
+                "week": week,
+                "theme": t["theme"],
+                "vocab": t["vocab"],
+                "grammar": t["grammar"],
+                "class_type": t["class_type"],
+            })
+            week += 1
+    if week - 1 != 32:
+        raise ValueError(f"Weekly curriculum sums to {week - 1} weeks, expected 32")
+    return rows
+
+
+# Band 0 — CP/CE1/CE2 (ages 6-9). Grammar allowed is almost nothing (to be,
+# basic noun phrases, colours, numbers 1-20) — the year is mostly vocabulary
+# expansion inside that one tiny frame ("It's a...", "This is my..."), which
+# is exactly how real early-years EFL works.
+BAND0_CURRICULUM = build_weekly_curriculum([
+    {"theme": "Hello & introductions", "vocab": "hello, goodbye, my name is, yes, no", "grammar": "Hello! My name is... What's your name?", "class_type": "Vocabulary Focus"},
+    {"theme": "Colours", "vocab": "red, blue, yellow, green, black, white", "grammar": "It's + colour: It's red.", "class_type": "Vocabulary Focus"},
+    {"theme": "Numbers 1-10", "vocab": "one to ten", "grammar": "Counting objects: How many? One, two...", "class_type": "Vocabulary Focus"},
+    {"theme": "Classroom objects", "vocab": "pen, book, bag, chair, table, pencil", "grammar": "It's a...: It's a pen.", "class_type": "Vocabulary Focus"},
+    {"theme": "Family", "vocab": "mum, dad, sister, brother, baby, family", "grammar": "This is my...: This is my mum.", "class_type": "Vocabulary Focus"},
+    {"theme": "Pets & animals", "vocab": "cat, dog, bird, fish, rabbit, hamster", "grammar": "It's a...: It's a cat.", "class_type": "Vocabulary Focus"},
+    {"theme": "Body parts", "vocab": "head, hand, foot, eye, ear, nose", "grammar": "It's my...: It's my hand.", "class_type": "Vocabulary Focus"},
+    {"theme": "Fruit & food", "vocab": "apple, bread, milk, egg, banana, water", "grammar": "It's a/an...: It's an apple.", "class_type": "Vocabulary Focus"},
+    {"theme": "Toys", "vocab": "ball, doll, kite, car, teddy bear, blocks", "grammar": "It's a...: It's a ball.", "class_type": "Vocabulary Focus"},
+    {"theme": "Clothes", "vocab": "hat, shoes, coat, dress, t-shirt, socks", "grammar": "It's a/are...: It's a hat. They are shoes.", "class_type": "Vocabulary Focus"},
+    {"theme": "Weather", "vocab": "sunny, rainy, cold, hot, windy, cloudy", "grammar": "It's + weather word: It's sunny.", "class_type": "Vocabulary Focus"},
+    {"theme": "Shapes", "vocab": "circle, square, triangle, star, heart, box", "grammar": "It's a...: It's a circle.", "class_type": "Vocabulary Focus"},
+    {"theme": "Numbers 11-20", "vocab": "eleven to twenty", "grammar": "Counting extension, How many?", "class_type": "Vocabulary Focus"},
+    {"theme": "Farm animals", "vocab": "cow, sheep, horse, duck, pig, hen", "grammar": "It's a...: It's a cow.", "class_type": "Vocabulary Focus"},
+    {"theme": "Transport", "vocab": "car, bus, train, bike, plane, boat", "grammar": "It's a...: It's a car.", "class_type": "Vocabulary Focus"},
+    {"theme": "Review & end-of-year show", "vocab": "review of favourite words from the year", "grammar": "Review: It's a.../This is my.../My name is...", "class_type": "Review"},
+])
+
+# Band 1 — CM1 (ages 9-10, the year before CM2). Present Simple, have got,
+# can/can't, Do/Does questions. Deliberately distinct progression from CM2
+# (CM2 already has its own detailed year, one grade ahead).
+CM1_CURRICULUM = build_weekly_curriculum([
+    {"theme": "All about me", "vocab": "name, age, hello, nice to meet you", "grammar": "I am / My name is / I am nine.", "class_type": "Vocabulary Focus"},
+    {"theme": "Family", "vocab": "mum, dad, brother, sister, grandma, grandpa", "grammar": "Have got: I've got a brother.", "class_type": "Grammar Focus"},
+    {"theme": "School subjects", "vocab": "maths, English, art, sport, music, break", "grammar": "Do you like...? Yes I do / No I don't.", "class_type": "Grammar Focus"},
+    {"theme": "Age & counting", "vocab": "numbers to 20, old, young, birthday", "grammar": "How old are you? I am nine.", "class_type": "Grammar Focus"},
+    {"theme": "Pets & animals", "vocab": "dog, cat, rabbit, fish, hamster, bird", "grammar": "Have got: I've got a dog. He's got a cat.", "class_type": "Grammar Focus"},
+    {"theme": "Daily routine", "vocab": "wake up, eat breakfast, go to school, sleep", "grammar": "Present Simple he/she: She wakes up at 7.", "class_type": "Grammar Focus"},
+    {"theme": "Food & likes", "vocab": "pizza, chocolate, vegetables, fruit, like", "grammar": "Do you like...? Yes I do / No I don't.", "class_type": "Grammar Focus"},
+    {"theme": "Sports & abilities", "vocab": "swim, run, jump, play football, ride a bike", "grammar": "Can/can't: I can swim. I can't fly.", "class_type": "Grammar Focus"},
+    {"theme": "My house", "vocab": "bedroom, kitchen, garden, big, small", "grammar": "Have got: My house has got a garden.", "class_type": "Grammar Focus"},
+    {"theme": "Hobbies", "vocab": "draw, read, dance, play games, watch TV", "grammar": "Present Simple: I play football on Saturdays.", "class_type": "Grammar Focus"},
+    {"theme": "Clothes & weather", "vocab": "coat, hat, boots, cold, hot, rain", "grammar": "Present Simple: I wear a coat when it's cold.", "class_type": "Grammar Focus"},
+    {"theme": "Jobs", "vocab": "teacher, doctor, farmer, works, every day", "grammar": "Present Simple -s: My dad is a teacher. He works...", "class_type": "Grammar Focus"},
+    {"theme": "Time & schedule", "vocab": "o'clock, morning, afternoon, evening", "grammar": "Do/Does questions: What time do you wake up?", "class_type": "Grammar Focus"},
+    {"theme": "Animal abilities", "vocab": "fly, swim, climb, run fast, jump high", "grammar": "Can/can't: Birds can fly. Fish can't walk.", "class_type": "Grammar Focus"},
+    {"theme": "Free time", "vocab": "weekend, friends, park, games, fun", "grammar": "Present Simple review, mixed persons.", "class_type": "Review"},
+    {"theme": "All about me — review", "vocab": "review of the year's topics", "grammar": "Full review: have got, can/can't, Present Simple.", "class_type": "Review"},
+])
+
+# Band 2 — 6e/5e/4e (ages 11-14, all share this band's grammar ceiling).
+# Present Simple+Continuous, simple past, comparatives, going to, must/should.
+# FORBIDDEN for this band: Conditional 2/3, past continuous, passive,
+# relative clauses — so "going to" and "must/should" are as far as this
+# group goes on future/obligation; the old flat block string that later
+# pushed Present Perfect + Conditional 1 onto this group (band-3 content)
+# is not carried over here.
+BAND2_CURRICULUM = build_weekly_curriculum([
+    {"theme": "Introductions & routines", "vocab": "introduce yourself, hobbies, school, family", "grammar": "Present Simple review: I go to school by bus.", "class_type": "Review"},
+    {"theme": "Daily routines + frequency", "vocab": "always, usually, sometimes, never, routine", "grammar": "Present Simple + adverbs of frequency.", "class_type": "Grammar Focus"},
+    {"theme": "What's happening now", "vocab": "right now, at the moment, look, listen", "grammar": "Present Continuous: What are you doing?", "class_type": "Grammar Focus"},
+    {"theme": "Be/have & personal info", "vocab": "hungry, cold, tired, right, have got", "grammar": "Be/have traps: I am hungry (not I have hungry).", "class_type": "Grammar Focus"},
+    {"theme": "Yesterday (regular verbs)", "vocab": "watched, played, walked, cooked, yesterday", "grammar": "Past Simple regular verbs.", "class_type": "Grammar Focus"},
+    {"theme": "Yesterday (irregular verbs)", "vocab": "went, saw, ate, had, did, top 10 irregulars", "grammar": "Past Simple top 10 irregular verbs.", "class_type": "Grammar Focus"},
+    {"theme": "School rules", "vocab": "must, mustn't, uniform, homework, allowed", "grammar": "Must/mustn't for obligation and rules.", "class_type": "Grammar Focus"},
+    {"theme": "Comparing things", "vocab": "bigger, smaller, more interesting, than", "grammar": "Comparatives: bigger than, more interesting than.", "class_type": "Grammar Focus"},
+    {"theme": "Future plans", "vocab": "going to, weekend, holiday, plan", "grammar": "Going to for future plans: I'm going to visit...", "class_type": "Grammar Focus"},
+    {"theme": "Hobbies & free time", "vocab": "review of hobby vocabulary", "grammar": "Present Simple/Continuous contrast review.", "class_type": "Review"},
+    {"theme": "Health & advice", "vocab": "should, shouldn't, healthy, tired, sleep", "grammar": "Should/shouldn't for advice.", "class_type": "Grammar Focus"},
+    {"theme": "Past experiences", "vocab": "trip, holiday, last year, ago", "grammar": "Past Simple review, regular + irregular mixed.", "class_type": "Grammar Focus"},
+    {"theme": "Weekend plans extension", "vocab": "more going-to practice, invitations", "grammar": "Going to — extended practice, questions.", "class_type": "Grammar Focus"},
+    {"theme": "Rules & the environment", "vocab": "recycle, mustn't, should, protect", "grammar": "Must/should review in a new context.", "class_type": "Grammar Focus"},
+    {"theme": "Storytelling", "vocab": "review of past-tense vocabulary", "grammar": "Past Simple full review — tell a short story.", "class_type": "Review"},
+    {"theme": "End of year review", "vocab": "review of the year's topics", "grammar": "Mixed review — oral + written checkpoint.", "class_type": "Review"},
+])
+
+# Band 3 — 3e/2nde (ages 14-16). All past tenses, Conditional 1 & 2, passive,
+# relative clauses. FORBIDDEN: Conditional 3, complex reported speech,
+# subjunctive — simple reported speech (basic backshift) is fine here.
+BAND3_CURRICULUM = build_weekly_curriculum([
+    {"theme": "Settling in — past review", "vocab": "review of Past Simple from previous years", "grammar": "Past Simple review — narrating last summer.", "class_type": "Review"},
+    {"theme": "In the middle of it", "vocab": "was/were + -ing, interrupted, while", "grammar": "Past Continuous: I was watching TV when...", "class_type": "Grammar Focus"},
+    {"theme": "Life experiences", "vocab": "have been, have never, ever, already", "grammar": "Present Perfect for experience: I have been to...", "class_type": "Grammar Focus"},
+    {"theme": "Real possibilities", "vocab": "if, will, possible, decision", "grammar": "Conditional 1: If it rains, I will stay home.", "class_type": "Grammar Focus"},
+    {"theme": "Imagining things", "vocab": "if, would, imagine, hypothetical", "grammar": "Conditional 2: If I were rich, I would travel.", "class_type": "Grammar Focus"},
+    {"theme": "What was done", "vocab": "was/were + past participle, by", "grammar": "Passive voice: The window was broken.", "class_type": "Grammar Focus"},
+    {"theme": "Describing people & things", "vocab": "who, which, that, relative clause", "grammar": "Relative clauses: The man who lives next door...", "class_type": "Grammar Focus"},
+    {"theme": "Telling a story", "vocab": "review of past-tense vocabulary", "grammar": "Mixed past tenses in narrative.", "class_type": "Grammar Focus"},
+    {"theme": "Opinions & debate", "vocab": "in my opinion, I think, agree, disagree", "grammar": "Conditional 1 & 2 review in argument context.", "class_type": "Review"},
+    {"theme": "Global issues", "vocab": "environment, pollution, solution, protect", "grammar": "Passive + relative clauses in context.", "class_type": "Grammar Focus"},
+    {"theme": "Reporting what people say", "vocab": "said, told, that, reported", "grammar": "Simple reported speech: She said she was tired.", "class_type": "Grammar Focus"},
+    {"theme": "News & media", "vocab": "headline, announced, confirmed, report", "grammar": "Passive review in news context.", "class_type": "Grammar Focus"},
+    {"theme": "Ambitions & the future", "vocab": "hope, dream, would like to, career", "grammar": "Conditional 2 review — hypothetical futures.", "class_type": "Grammar Focus"},
+    {"theme": "Culture & travel", "vocab": "review of travel/culture vocabulary", "grammar": "Relative clauses — extended practice.", "class_type": "Grammar Focus"},
+    {"theme": "Mixed review", "vocab": "review of the year's topics", "grammar": "Mixed past tenses + conditionals review.", "class_type": "Review"},
+    {"theme": "Exam preparation", "vocab": "review of the year's topics", "grammar": "Full mock exam — oral + written.", "class_type": "Assessment"},
+])
+
+# Band 4 — 1ère/Terminale (ages 16-18). Full grammar range, no vocab limit.
+BAND4_CURRICULUM = build_weekly_curriculum([
+    {"theme": "Settling in — advanced review", "vocab": "no fixed limit", "grammar": "Mixed tense review, advanced self-presentation.", "class_type": "Review"},
+    {"theme": "Regrets", "vocab": "no fixed limit", "grammar": "Conditional 3: If I had studied, I would have passed.", "class_type": "Grammar Focus"},
+    {"theme": "Reporting in detail", "vocab": "no fixed limit", "grammar": "Complex reported speech with backshift.", "class_type": "Grammar Focus"},
+    {"theme": "Formal suggestions", "vocab": "no fixed limit", "grammar": "Subjunctive: It is essential that he be on time.", "class_type": "Grammar Focus"},
+    {"theme": "Debate & persuasion", "vocab": "no fixed limit", "grammar": "Mixed advanced structures in argument.", "class_type": "Grammar Focus"},
+    {"theme": "Media literacy", "vocab": "no fixed limit", "grammar": "Passive + reported speech in news analysis.", "class_type": "Grammar Focus"},
+    {"theme": "Culture & literature", "vocab": "no fixed limit", "grammar": "Relative clauses + nuanced vocabulary.", "class_type": "Grammar Focus"},
+    {"theme": "Global issues & solutions", "vocab": "no fixed limit", "grammar": "Conditional 2 & 3 mixed — proposing solutions.", "class_type": "Grammar Focus"},
+    {"theme": "University & career", "vocab": "no fixed limit", "grammar": "Formal register, subjunctive practice.", "class_type": "Grammar Focus"},
+    {"theme": "Ethics & society", "vocab": "no fixed limit", "grammar": "Abstract discussion, advanced connectors.", "class_type": "Grammar Focus"},
+    {"theme": "Science & technology", "vocab": "no fixed limit", "grammar": "Extended passive voice practice.", "class_type": "Grammar Focus"},
+    {"theme": "History & narrative", "vocab": "no fixed limit", "grammar": "Mixed past tenses + reported speech.", "class_type": "Grammar Focus"},
+    {"theme": "Arts & opinions", "vocab": "no fixed limit", "grammar": "Nuanced opinion language, all tenses.", "class_type": "Grammar Focus"},
+    {"theme": "Mock interview practice", "vocab": "no fixed limit", "grammar": "Full register range — formal oral practice.", "class_type": "Grammar Focus"},
+    {"theme": "Comprehensive review", "vocab": "no fixed limit", "grammar": "Full grammar review, all structures.", "class_type": "Review"},
+    {"theme": "Bac exam preparation", "vocab": "no fixed limit", "grammar": "Full mock exam — oral + written.", "class_type": "Assessment"},
+])
+
+SCHOOL_CURRICULUM_BY_BAND = {0: BAND0_CURRICULUM, 1: CM1_CURRICULUM, 2: BAND2_CURRICULUM, 3: BAND3_CURRICULUM, 4: BAND4_CURRICULUM}
+
+# CEFR hard constraints per band — ported from the local engine's
+# BAND_CONSTRAINTS (index.html, 2026-09-18), injected into every AI prompt
+# that generates student-facing content so the model can't quietly
+# overestimate a class's level (the original bug: a band-2 class's script
+# used second-conditional "What would happen if...?" throughout — grammar
+# it hadn't been taught).
+BAND_CONSTRAINTS = {
+    0: {
+        "label": "Pré-A1 / CP-CE2",
+        "grammar_allowed": "to be (am/is/are), basic noun phrases, colours, numbers 1-20",
+        "grammar_forbidden": "all verb tenses, negation with auxiliaries, questions",
+        "max_vocab": 6,
+        "vocab_note": "concrete objects only",
+        "max_sheets": 1,
+        "instruction_max_words": None,
+    },
+    1: {
+        "label": "A1 / CM1-CM2",
+        "grammar_allowed": "Present Simple (I/you/he), can/can't, Have got, basic questions with Do/Does",
+        "grammar_forbidden": "Present Continuous, past tenses, conditionals, passive",
+        "max_vocab": 8,
+        "vocab_note": "familiar topics (family, school, food, animals)",
+        "max_sheets": 1,
+        "instruction_max_words": None,
+    },
+    2: {
+        "label": "A2 / 6ème-4ème",
+        "grammar_allowed": "Present Simple + Continuous, simple past (regular + top 10 irregular), comparatives, going to (future plans), basic modal verbs (must/should)",
+        "grammar_forbidden": "Conditional 2 or 3, past continuous, passive voice, relative clauses",
+        "max_vocab": 10,
+        "vocab_note": "familiar everyday topics only",
+        "max_sheets": 2,
+        "instruction_max_words": 8,
+    },
+    3: {
+        "label": "B1 / 3ème-2nde",
+        "grammar_allowed": "All past tenses, Conditional 1 and 2, passive voice, relative clauses",
+        "grammar_forbidden": "Conditional 3, reported speech in complex forms, subjunctive",
+        "max_vocab": 15,
+        "vocab_note": None,
+        "max_sheets": 2,
+        "instruction_max_words": None,
+    },
+    4: {
+        "label": "B2 / 1ère-Terminale",
+        "grammar_allowed": "All structures including Conditional 3, reported speech, subjunctive",
+        "grammar_forbidden": None,
+        "max_vocab": None,
+        "vocab_note": None,
+        "max_sheets": 3,
+        "instruction_max_words": None,
+    },
+}
+
 # Adult general-English curriculum — CEFR-differentiated per level. `vocab`
 # is an array, one entry per week within the block (block sizes: 7,7,5,6,7
 # weeks — see MASTER_CURRICULUM). `grammar` stays one target for the whole

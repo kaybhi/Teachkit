@@ -21,6 +21,23 @@ dialogue style rules, the Form+Function grammar instruction, and the
 import re
 from typing import List, Optional, Tuple
 
+from curriculum_data import BAND_CONSTRAINTS
+
+
+# Weeks 1-4: revision/consolidation only, max 1 new grammar point.
+# Weeks 5-20: introduce exactly 1 new grammar point.
+# Weeks 21-32: consolidation/exam prep, no new grammar points.
+# Ported from the local engine's weekPositionRule (index.html, 2026-09-18).
+def week_position_rule(week: int) -> str:
+    if week <= 4:
+        return ("This is a REVISION/CONSOLIDATION week (weeks 1-4) — recycle and reinforce grammar "
+                "already taught. Do not introduce more than 1 new grammar point, and only if genuinely necessary.")
+    if week <= 20:
+        return ("This is a teaching week (weeks 5-20) — introduce exactly 1 new grammar point this week, "
+                "building on what came before.")
+    return ("This is a CONSOLIDATION/EXAM-PREP week (weeks 21-32) — no new grammar points. Recycle, extend "
+            "fluency, and prepare for assessment with structures already taught.")
+
 
 def stage_timings(total_minutes: int) -> dict:
     def round5(n: float) -> int:
@@ -47,13 +64,49 @@ def build_script_prompt(
 ) -> str:
     t = stage_timings(duration)
     is_adult_track = level["cycle"] in ("Adultes", "Business")
+    is_young_learner = level["band"] <= 1
     audience_note = (
         'This is an adult learner (a working professional) — no mime, no TPR, no "stand up" or '
         "physical gesture instructions anywhere. Verbal and conversational techniques only."
         if is_adult_track
-        else "Gesture/TPR is fine where it helps young learners, especially for younger levels."
+        else "This is a young child (6-11). Energy and fun matter as much as accuracy at this age — "
+             "see the FUN & ENGAGEMENT block below, which is not optional."
+        if is_young_learner
+        else "Gesture/TPR is fine where it helps, if it suits the group."
     )
-    max_words = 6
+    fun_note = ""
+    if is_young_learner:
+        fun_note = f"""
+
+FUN & ENGAGEMENT FOR YOUNG LEARNERS — not optional, this is what keeps a {level['ages']}-year-old engaged:
+- At least ONE stage (warm-up or practice) must include physical movement — standing up, TPR commands,
+  miming, pointing, or a mingling/walk-around element. Sitting still and writing for the whole lesson
+  is not acceptable at this age.
+- Break controlled practice into 2 short rounds with a quick breather/transition between them (e.g. a
+  30-second stand-up-and-shake or a quick chant) rather than one long continuous block — young children
+  lose focus well before {t['practice']} minutes of one static task.
+- Build in a clear "win" moment somewhere — a mini competition, points, a race, or a fun reveal — not
+  just correct/incorrect feedback.
+- Give the teacher 2-3 short praise/encouragement phrases to actually say out loud (e.g. "Yes! High
+  five!", "Super! Say it again, everyone!") — write them as exact quotes, the same way other exact
+  wording is quoted elsewhere in this script.
+- Use repetition and rhythm where it fits naturally — choral repeat, call-and-response, a short chant —
+  young children learn through pattern and sound, not just meaning.
+- End on an upbeat note — a cheer, a class chant, or a quick "what did we learn?" celebration, not a
+  flat administrative wrap-up."""
+
+    band = BAND_CONSTRAINTS[level["band"]]
+    max_words = band["max_vocab"]
+    vocab_cap_line = (
+        f"max {max_words} words/phrases for the whole class" + (f" ({band['vocab_note']})" if band["vocab_note"] else "")
+        if max_words
+        else "no fixed vocabulary limit at this level"
+    )
+    instruction_length_note = (
+        f"\n- Instruction sentences in student-facing text: maximum {band['instruction_max_words']} words each, no subordinate clauses."
+        if band["instruction_max_words"]
+        else ""
+    )
 
     grammar_line = f"\nGrammar target: {curriculum['grammar']}" if curriculum.get("grammar") else ""
     vocab_line = f"\nVocabulary focus: {curriculum['vocab']}" if curriculum.get("vocab") else ""
@@ -65,6 +118,15 @@ def build_script_prompt(
     activity_types_str = ", ".join(activity_types) if activity_types else "Games, Pair work, Group work, Songs, Role-play"
 
     return f"""You are an experienced EFL teacher writing your OWN lesson plan for a class you are about to teach — the kind of practical, no-nonsense document a real teacher writes for themselves, not a formal training script.
+
+GRAMMAR CONSTRAINTS FOR THIS LEVEL ({band['label']}) — HARD RULES, do not violate even if the curriculum
+topic below seems to invite something more advanced:
+ALLOWED: {band['grammar_allowed']}
+{f"FORBIDDEN — do not use, even in passing, even in an example sentence: {band['grammar_forbidden']}" if band['grammar_forbidden'] else "No grammar restrictions at this level."}
+{week_position_rule(week)}{instruction_length_note}
+If the selected activity or curriculum topic would require forbidden grammar to complete naturally,
+simplify the task (e.g. swap a hypothetical "What would happen if...?" framing for a real-tense
+"What do you do when...?") rather than teaching structures this class hasn't learned yet.
 
 STYLE — the most important instruction. Write like a real teacher's own lesson notes:
 - NO "Teacher: ... / Students: ..." turn-by-turn dialogue transcript
@@ -81,7 +143,7 @@ Level: {level['label']} · CEFR: {level['cefr']} · {level['cycle']} · Ages: {l
 Duration: {duration} min · Week {week} of 32 · {curriculum['block']} ({curriculum['date_range']})
 Class size: {student_count} students · Skills: {', '.join(skills)}
 Preferred activity types for the production stage: {activity_types_str} — choose one that fits this week's topic.
-{audience_note}
+{audience_note}{fun_note}
 
 THIS WEEK'S CURRICULUM (mandatory — teach this, not a different topic)
 --------------------------------------------------------------------------
@@ -94,7 +156,7 @@ WRITE THE LESSON PLAN WITH THESE SECTIONS, IN THIS ORDER (use a markdown heading
 3. Grammar point — for each form: the FORM (how it's built) and the FUNCTION (what it's used for/what it
    means), 2-5 short lines total (e.g. "should + base verb — Form: modal + verb, no 'to'. Function: giving advice
    or saying what's the right thing to do.")
-4. Key vocabulary — max {max_words} words/phrases for the whole class. For EACH one give, on its own line:
+4. Key vocabulary — {vocab_cap_line}. For EACH one give, on its own line:
    the word, its part of speech (noun/verb/adjective/adverb/phrase etc.), a simple pronunciation guide in
    slashes (e.g. /bʊk/ — plain respelling is fine, not full IPA, if that's clearer for a French speaker), and
    a short simple-English meaning. Format: word (part of speech) /pronunciation/ — meaning. One line per word,
@@ -125,10 +187,17 @@ def sheets_common_context(level: dict, curriculum: dict, student_count: int, act
     activity_types_str = ", ".join(activity_types) if activity_types else "Games, Pair work, Group work"
     grammar_part = f" · Grammar: {curriculum['grammar']}" if curriculum.get("grammar") else ""
     vocab_part = f" · Vocabulary: {curriculum['vocab']}" if curriculum.get("vocab") else ""
+    band = BAND_CONSTRAINTS[level["band"]]
+    constraints_line = (
+        f"GRAMMAR CONSTRAINTS FOR THIS LEVEL ({band['label']}) — HARD RULES: ALLOWED: {band['grammar_allowed']}."
+        + (f" FORBIDDEN, even in an example sentence: {band['grammar_forbidden']}." if band["grammar_forbidden"] else "")
+        + (f" Instructions to students: max {band['instruction_max_words']} words per sentence, no subordinate clauses." if band["instruction_max_words"] else "")
+    )
     return f"""Level: {level['label']} · CEFR: {level['cefr']} · Ages: {level['ages']}
 Class size: {student_count} students
 Preferred activity types: {activity_types_str}
-Curriculum topic: {curriculum['theme']}{grammar_part}{vocab_part}"""
+Curriculum topic: {curriculum['theme']}{grammar_part}{vocab_part}
+{constraints_line}"""
 
 
 def sheet_spec(letter: str, level: dict, student_count: int) -> str:
@@ -231,16 +300,34 @@ FORMAT RULES:
 # Each checked "Worksheet exercise type" box gets its own full standalone
 # page — a grammar/vocab practice sheet in that specific format, independent
 # of whichever skill sheets (A-D) also exist.
-def exercise_type_spec(key: str) -> str:
+def exercise_type_spec(key: str, level: dict) -> str:
+    # A real band-1 (CM1, age 9) sheet matched simple words like "have" and
+    # "old" against adult dictionary-style English definitions ("to own or
+    # possess something") — introducing a HARDER word to explain an EASIER
+    # one, while other items on the same sheet used French translations.
+    # Force one consistent, comprehensible match-target instead.
+    use_french = level["band"] <= 2
+    match_target_rule = (
+        """Every lettered match-target MUST be a simple French translation of the numbered item — do NOT
+write English definitions or explanations (e.g. match "have" to "avoir", NOT to "to own or
+possess something"). French translations only, for every single item."""
+        if use_french
+        else """Lettered match-targets may be French translations OR short English synonyms/definitions —
+but if using English, every word in the definition itself must be at or below this class's
+own vocabulary level. Never explain an easy word using a harder one (e.g. do not define
+"have" as "to own or possess something" — "possess" is harder than "have")."""
+    )
     specs = {
         "gapfill": """GAP FILL PRACTICE
 A plain numbered list of exactly 10 gap-fill sentences using this week's grammar/vocabulary
 target. One blank per sentence, plain underscores (e.g. ______________). NO table, no columns.""",
-        "matching": """MATCHING PRACTICE
+        "matching": f"""MATCHING PRACTICE
 A plain numbered list of exactly 10 items to match — NOT a table. For each numbered item give
-the word/phrase and a blank for the matching letter (e.g. "1. set up a business — write the
-letter of the definition that matches: ___"), then a lettered list of the 10 definitions/
-translations/pairs below the numbered items.""",
+the word/phrase and a blank for the matching letter (e.g. "1. wake up — write the letter of the
+match: ___"), then a lettered list of the 10 matches below the numbered items.
+{match_target_rule}
+Keep the match-target format consistent across all 10 items — do not mix French translations
+and English definitions on the same sheet.""",
         "spotmistake": """SPOT THE MISTAKE
 A plain numbered list of exactly 10 sentences, each containing one grammar or vocabulary
 mistake tied to this week's target. Leave a blank line under each sentence for the student to
@@ -285,7 +372,7 @@ Teacher's script excerpt (for context):
 
 TASK
 ----
-{exercise_type_spec(key)}
+{exercise_type_spec(key, level)}
 {_adult_note(level)}
 FORMAT RULES:
 - Start with: Name: ___________ Date: ___________

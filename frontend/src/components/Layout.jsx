@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
-import { LayoutDashboard, UserCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, UserCircle, LogOut, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LangToggle from "@/components/LangToggle";
 
@@ -35,6 +35,7 @@ export default function Layout({ children }) {
         </Link>
         <nav className="py-4 flex-1">
           {item("/dashboard", LayoutDashboard, t("side.syllabus"), "side-nav-dashboard")}
+          {item("/plans", CreditCard, "Plans", "side-nav-plans")}
           {item("/profile", UserCircle, t("side.profile"), "side-nav-profile")}
         </nav>
         <div className="border-t border-zinc-900 p-4 space-y-3">

@@ -104,15 +104,41 @@ class GetCurriculumForWeekTests(unittest.TestCase):
         self.assertTrue(r1["detailed"])
         self.assertEqual(r1["source"], "CM2 weekly curriculum plan")
 
-    def test_undetailed_level_falls_back_to_block_topic(self):
-        # CM1 has no per-week detailed plan (only CM2 does) — falls back to
-        # the school-wide block-level topic, detailed=False, vocab=None.
+    def test_school_level_without_own_detailed_plan_uses_band_curriculum(self):
+        # CM1 has no CM2-style per-week plan of its own, but (as of the
+        # 2026-09-18 fix) resolves to its band's real weekly curriculum
+        # instead of the old flat block-level string that repeated the same
+        # topic for a whole 5-7 week block.
         level = LEVELS_BY_ID["cm1"]
         result = get_curriculum_for_week(level, 1)
-        self.assertFalse(result["detailed"])
-        self.assertIsNone(result["vocab"])
-        self.assertIsNone(result["grammar"])
-        self.assertIn("Alphabet", result["theme"])
+        self.assertTrue(result["detailed"])
+        self.assertEqual(result["source"], "weekly curriculum plan (band 1)")
+        self.assertIsNotNone(result["vocab"])
+        self.assertIsNotNone(result["grammar"])
+        self.assertEqual(result["theme"], "All about me")
+
+    def test_school_band_topic_changes_within_2_weeks(self):
+        # The rule that motivated this fix: a real 5ème class was stuck on
+        # one theme for 7 straight weeks. No topic may now span more than 2.
+        level = LEVELS_BY_ID["5e"]
+        themes = [get_curriculum_for_week(level, wk)["theme"] for wk in range(1, 9)]
+        self.assertEqual(themes[0], themes[1])
+        self.assertNotEqual(themes[1], themes[2])
+        self.assertEqual(themes[2], themes[3])
+        self.assertNotEqual(themes[3], themes[4])
+
+    def test_college_tier_now_differs_by_band_not_just_shared_string(self):
+        # 6e (band 2) and a band-3/4 level must no longer share identical
+        # theme text the way the old flat "college" block string did.
+        sixieme = get_curriculum_for_week(LEVELS_BY_ID["6e"], 1)
+        troisieme = get_curriculum_for_week(LEVELS_BY_ID["3e"], 1)
+        self.assertNotEqual(sixieme["theme"], troisieme["theme"])
+
+    def test_cm2_plan_unaffected_by_band_curriculum_fix(self):
+        level = LEVELS_BY_ID["cm2"]
+        result = get_curriculum_for_week(level, 1)
+        self.assertEqual(result["source"], "CM2 weekly curriculum plan")
+        self.assertEqual(result["theme"], "Greetings + family + numbers")
 
     def test_special_topic_override(self):
         level = LEVELS_BY_ID["biz-b1"]

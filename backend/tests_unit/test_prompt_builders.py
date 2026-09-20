@@ -77,10 +77,16 @@ class StripLeadingNameDateLineTests(unittest.TestCase):
 
 
 class ExerciseTypeSpecTests(unittest.TestCase):
+    # exercise_type_spec now takes `level` too (2026-09-18) — the "matching"
+    # type needs the band to decide French-only vs French-or-English
+    # match-targets, see MatchingExerciseBandTests below. A plain band-3
+    # dict is enough for these generic checks.
+    _LEVEL = {"band": 3}
+
     def test_multiplechoice_forbids_optionless_items(self):
         # Pins the teacher-reported bug fix: every MC item must require
         # exactly 3 lettered options, no bare fill-in-the-blank items.
-        spec = exercise_type_spec("multiplechoice")
+        spec = exercise_type_spec("multiplechoice", self._LEVEL)
         self.assertIn("EVERY single item", spec)
         self.assertIn("3 lettered options", spec)
         self.assertIn("Do not let any item become a plain fill-in-the-blank", spec)
@@ -90,14 +96,36 @@ class ExerciseTypeSpecTests(unittest.TestCase):
             "gapfill", "matching", "spotmistake", "multiplechoice",
             "truefalse", "wordorder", "guidedwriting", "pictureqa",
         ]:
-            self.assertTrue(exercise_type_spec(key), f"missing spec for {key}")
+            self.assertTrue(exercise_type_spec(key, self._LEVEL), f"missing spec for {key}")
 
     def test_unknown_type_returns_empty(self):
-        self.assertEqual(exercise_type_spec("nonsense"), "")
+        self.assertEqual(exercise_type_spec("nonsense", self._LEVEL), "")
+
+
+class MatchingExerciseBandTests(unittest.TestCase):
+    """Pins the fix for a real band-1 (CM1, age 9) sheet that matched simple
+    words like "have" against adult dictionary definitions ("to own or
+    possess something") — a harder word explaining an easier one."""
+
+    def test_low_band_forces_french_translations_only(self):
+        spec = exercise_type_spec("matching", {"band": 1})
+        self.assertIn("French translation", spec)
+        self.assertIn("avoir", spec)
+        # "possess" does legitimately appear once, as the negative example of
+        # what NOT to do (mirrors the real bug this fix addresses) — the
+        # actual rule is "French translations only", asserted above.
+
+    def test_high_band_allows_english_but_forbids_harder_word_definitions(self):
+        spec = exercise_type_spec("matching", {"band": 4})
+        self.assertIn("French translations OR short English", spec)
+        self.assertIn("harder", spec)
 
 
 class BuildScriptPromptTests(unittest.TestCase):
-    def test_contains_form_function_and_six_word_vocab_cap(self):
+    def test_contains_form_function_and_band_vocab_cap(self):
+        # Vocab cap is band-driven since 2026-09-18 (was hardcoded to 6 for
+        # every level) — Business B1 is band 3, whose BAND_CONSTRAINTS cap
+        # is 15, not 6.
         level = {"label": "B1", "cefr": "B1", "cycle": "Business", "ages": "18+", "band": 3}
         curriculum = {
             "block": "Block 2", "date_range": "x", "theme": "Arranging meetings",
@@ -109,15 +137,31 @@ class BuildScriptPromptTests(unittest.TestCase):
         )
         self.assertIn("FORM", prompt)
         self.assertIn("FUNCTION", prompt)
-        self.assertIn("max 6 words", prompt)
+        self.assertIn("max 15 words", prompt)
         self.assertIn("no mime, no TPR", prompt)  # adult track note
         self.assertIn('NO "Teacher: ...', prompt)  # prohibits dialogue-transcript style
+        self.assertIn("GRAMMAR CONSTRAINTS FOR THIS LEVEL", prompt)
+        self.assertIn("FORBIDDEN", prompt)
 
-    def test_school_level_gets_tpr_allowance_not_adult_note(self):
+    def test_young_learner_gets_fun_engagement_block_not_generic_tpr_note(self):
+        # CM1 is band 1 (young learner, 2026-09-18 fix) — gets the mandatory
+        # FUN & ENGAGEMENT block, not the old one-line generic TPR mention.
         level = {"label": "CM1", "cefr": "A1", "cycle": "Cycle 3", "ages": "9-10", "band": 1}
         curriculum = {"block": "Block 1", "date_range": "x", "theme": "Colours", "grammar": None, "vocab": None}
         prompt = build_script_prompt(level, 1, curriculum, ["speaking"], 60, 6, activity_types=["Games"])
+        self.assertIn("FUN & ENGAGEMENT FOR YOUNG LEARNERS", prompt)
+        self.assertIn("physical movement", prompt)
+        self.assertIn("praise/encouragement", prompt)
+        self.assertNotIn("Gesture/TPR is fine", prompt)
+
+    def test_older_school_level_gets_generic_tpr_note_not_fun_block(self):
+        # 6ème is band 2 — old enough that the mandatory young-learner block
+        # shouldn't apply, but still not an adult track.
+        level = {"label": "6ème", "cefr": "A1/A2", "cycle": "Collège", "ages": "11-12", "band": 2}
+        curriculum = {"block": "Block 1", "date_range": "x", "theme": "Routines", "grammar": None, "vocab": None}
+        prompt = build_script_prompt(level, 6, curriculum, ["speaking"], 60, 20, activity_types=["Games"])
         self.assertIn("Gesture/TPR is fine", prompt)
+        self.assertNotIn("FUN & ENGAGEMENT FOR YOUNG LEARNERS", prompt)
 
 
 if __name__ == "__main__":

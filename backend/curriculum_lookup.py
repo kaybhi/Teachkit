@@ -14,6 +14,7 @@ from curriculum_data import (
     BUSINESS_CURRICULUM,
     CM2_CURRICULUM,
     MASTER_CURRICULUM,
+    SCHOOL_CURRICULUM_BY_BAND,
     SPECIAL_TOPICS,
 )
 
@@ -107,6 +108,14 @@ def get_curriculum_for_week(
         detailed = next((r for r in CM2_CURRICULUM if r["week"] == week), None)
         if detailed:
             source = "CM2 weekly curriculum plan"
+    elif level["cycle"] in ("Cycle 2", "Cycle 3", "Collège", "Lycée"):
+        # Every other school level (CP-CM1, 6e-Terminale) — a real weekly
+        # curriculum per band-group, each topic capped at 2 weeks, replacing
+        # the old flat block-level string that repeated the same topic for
+        # 5-7 weeks (and, for "college", across 7 different grade levels).
+        detailed = next((r for r in SCHOOL_CURRICULUM_BY_BAND.get(level["band"], []) if r["week"] == week), None)
+        if detailed:
+            source = f"weekly curriculum plan (band {level['band']})"
     elif level["cycle"] == "Adultes":
         detailed = next(
             (r for r in ADULT_GENERAL_CURRICULUM if r["block"] == wk["block"] and r["level"] == level["id"]),
