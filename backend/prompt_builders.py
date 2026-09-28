@@ -22,12 +22,31 @@ import re
 from typing import List, Optional, Tuple
 
 from curriculum_data import BAND_CONSTRAINTS
+from sheet_plan import sheet_plan_block, speaking_format_spec
 
 
 # Weeks 1-4: revision/consolidation only, max 1 new grammar point.
 # Weeks 5-20: introduce exactly 1 new grammar point.
 # Weeks 21-32: consolidation/exam prep, no new grammar points.
 # Ported from the local engine's weekPositionRule (index.html, 2026-09-18).
+def _exercise_label(key: str) -> str:
+    from curriculum_data import EXERCISE_TYPES
+    return next((t["label"] for t in EXERCISE_TYPES if t["key"] == key), key)
+
+
+_WORD_COUNT_RE = re.compile(r"^[ \t]*\(\s*\d+\s*words?\s*\)[ \t]*\r?\n?", re.IGNORECASE | re.MULTILINE)
+
+
+def strip_word_count(text: str) -> str:
+    """The model's own "(96 words)" tag is often wrong — drop it rather than print a false count."""
+    return _WORD_COUNT_RE.sub("", text)
+
+
+def part_note_line(curriculum: dict) -> str:
+    note = curriculum.get("part_note")
+    return f"\nWEEK POSITION: {note}" if note else ""
+
+
 def week_position_rule(week: int) -> str:
     if week <= 4:
         return ("This is a REVISION/CONSOLIDATION week (weeks 1-4) — recycle and reinforce grammar "
@@ -147,7 +166,7 @@ Preferred activity types for the production stage: {activity_types_str} — choo
 
 THIS WEEK'S CURRICULUM (mandatory — teach this, not a different topic)
 --------------------------------------------------------------------------
-Topic: {curriculum['theme']}{grammar_line}{vocab_line}
+Topic: {curriculum['theme']}{grammar_line}{vocab_line}{part_note_line(curriculum)}
 
 WRITE THE LESSON PLAN WITH THESE SECTIONS, IN THIS ORDER (use a markdown heading, e.g. "## Grammar point", for each one so they're visually distinct)
 ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -193,16 +212,30 @@ def sheets_common_context(level: dict, curriculum: dict, student_count: int, act
         + (f" FORBIDDEN, even in an example sentence: {band['grammar_forbidden']}." if band["grammar_forbidden"] else "")
         + (f" Instructions to students: max {band['instruction_max_words']} words per sentence, no subordinate clauses." if band["instruction_max_words"] else "")
     )
+    adult = level.get("cycle") in ("Adultes", "Business")
+    safety_line = "" if adult else (
+        "\nCONTENT SAFETY — HARD RULE: students are children/teenagers. Every scenario, character and example "
+        "must be safe and everyday: school, family, friends, sport, food, hobbies, travel. NEVER use strangers, "
+        "danger, crime, violence, weapons, drugs, alcohol, romance or anything frightening or inappropriate."
+    )
+    clarity_line = (
+        "\nCLARITY — HARD RULE: every item must be fully understandable on its own by a student of this age. "
+        "State exactly what to say, write or tick. Never leave a half-explained instruction "
+        "(e.g. \"answer with 'but'\") and never add vague hints like \"example idea\"."
+    )
     return f"""Level: {level['label']} · CEFR: {level['cefr']} · Ages: {level['ages']}
 Class size: {student_count} students
 Preferred activity types: {activity_types_str}
-Curriculum topic: {curriculum['theme']}{grammar_part}{vocab_part}
-{constraints_line}"""
+Curriculum topic: {curriculum['theme']}{grammar_part}{vocab_part}{part_note_line(curriculum)}
+{constraints_line}{safety_line}{clarity_line}"""
 
 
-def sheet_spec(letter: str, level: dict, student_count: int) -> str:
+def sheet_spec(letter: str, level: dict, student_count: int, plan: Optional[dict] = None) -> str:
     small_class = student_count <= 6
     if letter == "A":
+        planned = speaking_format_spec(plan, student_count)
+        if planned:
+            return planned
         pair_note = (
             f", for a small class of {student_count} students (pair or small-group discussion — the same partner throughout, or swap once or twice)"
             if small_class
@@ -251,7 +284,8 @@ def _adult_note(level: dict) -> str:
 
 
 def build_single_sheet_prompt(
-    letter: str, level: dict, curriculum: dict, student_count: int, activity_types: List[str], script_excerpt: str
+    letter: str, level: dict, curriculum: dict, student_count: int, activity_types: List[str], script_excerpt: str,
+    plan: Optional[dict] = None,
 ) -> str:
     return f"""You are an expert EFL materials writer for French schools. Generate ONE printable student activity sheet.
 
@@ -264,11 +298,11 @@ Teacher's script excerpt (for context):
 
 TASK
 ----
-{sheet_spec(letter, level, student_count)}
+{sheet_spec(letter, level, student_count, plan)}{sheet_plan_block(plan, letter)}
 {_adult_note(level)}
 FORMAT RULES:
 - Start with: Name: ___________ Date: ___________
-- Include a clear title
+- Include a clear title that names the skill (e.g. "Listening: At the Bus Stop") and is different from every other sheet's title
 - One short plain instruction line per exercise (e.g. "Complete with the correct
   tense.") — not a separate boxed "Instructions:" section
 - NO markdown tables anywhere (no | pipe syntax, no columns/grids) — even for a
@@ -359,7 +393,8 @@ grammar/vocabulary target.""",
 
 
 def build_exercise_type_sheet_prompt(
-    key: str, level: dict, curriculum: dict, student_count: int, activity_types: List[str], script_excerpt: str
+    key: str, level: dict, curriculum: dict, student_count: int, activity_types: List[str], script_excerpt: str,
+    plan: Optional[dict] = None,
 ) -> str:
     return f"""You are an expert EFL materials writer for French schools. Generate ONE printable student activity sheet — a standalone grammar/vocabulary practice page in the exact format the teacher requested below.
 
@@ -372,11 +407,11 @@ Teacher's script excerpt (for context):
 
 TASK
 ----
-{exercise_type_spec(key, level)}
+{exercise_type_spec(key, level)}{sheet_plan_block(plan, key)}
 {_adult_note(level)}
 FORMAT RULES:
 - Start with: Name: ___________ Date: ___________
-- Include a clear title
+- Title: a short topic phrase, then a dash, then the exercise type — exactly "{_exercise_label(key)}" — e.g. "Rainy Day — {_exercise_label(key)}". Two sheets in one pack must never share a title
 - One short plain instruction line at the top (e.g. "Complete with the correct tense.")
 - NO markdown tables anywhere (no | pipe syntax, no columns/grids) — use a plain numbered list
 - Exactly 10 items — not fewer, not more

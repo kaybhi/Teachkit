@@ -174,19 +174,39 @@ CM2_CURRICULUM = [
 # convention that can silently drift the way the old flat strings did.
 # ============================================================
 def build_weekly_curriculum(topics: list) -> list:
+    """16 topics, each with an "a" week and a "b" week -> 32 week-rows. The two
+    weeks of a topic must differ in focus, vocab AND grammar (two identical
+    classes back to back is a bug — real 5ème weeks 5 and 6 came out as the
+    same lesson). Each row carries a part_note telling the generator what the
+    other week covers, so examples don't repeat."""
     rows = []
     week = 1
     for t in topics:
-        span = t.get("weeks", 2)
-        if span > 2:
-            raise ValueError(f'Curriculum topic "{t["theme"]}" spans {span} weeks — max is 2')
-        for _ in range(span):
+        a, b = t.get("a"), t.get("b")
+        if not a or not b:
+            raise ValueError(f'Curriculum topic "{t["theme"]}" needs both an "a" and a "b" week')
+        if a["focus"] == b["focus"] or a["vocab"] == b["vocab"] or a["grammar"] == b["grammar"]:
+            raise ValueError(f'Curriculum topic "{t["theme"]}": its two weeks must differ in focus, vocab AND grammar')
+        for i, p in enumerate((a, b)):
+            if i == 0:
+                part_note = (
+                    f'This is week 1 of 2 on "{t["theme"]}". This week\'s focus: {a["focus"]}. '
+                    f'Next week covers {b["focus"]}, so do NOT teach or test that yet.'
+                )
+            else:
+                part_note = (
+                    f'This is week 2 of 2 on "{t["theme"]}". LAST WEEK covered: {a["focus"]} ({a["vocab"]}). '
+                    f'This week is DIFFERENT: {b["focus"]}. Do NOT reuse last week\'s vocabulary, example sentences, '
+                    f'characters, verbs or sentence stems — build on it with new content.'
+                )
             rows.append({
                 "week": week,
-                "theme": t["theme"],
-                "vocab": t["vocab"],
-                "grammar": t["grammar"],
+                "topic": t["theme"],
+                "theme": f'{t["theme"]} — {p["focus"]}',
+                "vocab": p["vocab"],
+                "grammar": p["grammar"],
                 "class_type": t["class_type"],
+                "part_note": part_note,
             })
             week += 1
     if week - 1 != 32:
@@ -199,44 +219,172 @@ def build_weekly_curriculum(topics: list) -> list:
 # expansion inside that one tiny frame ("It's a...", "This is my..."), which
 # is exactly how real early-years EFL works.
 BAND0_CURRICULUM = build_weekly_curriculum([
-    {"theme": "Hello & introductions", "vocab": "hello, goodbye, my name is, yes, no", "grammar": "Hello! My name is... What's your name?", "class_type": "Vocabulary Focus"},
-    {"theme": "Colours", "vocab": "red, blue, yellow, green, black, white", "grammar": "It's + colour: It's red.", "class_type": "Vocabulary Focus"},
-    {"theme": "Numbers 1-10", "vocab": "one to ten", "grammar": "Counting objects: How many? One, two...", "class_type": "Vocabulary Focus"},
-    {"theme": "Classroom objects", "vocab": "pen, book, bag, chair, table, pencil", "grammar": "It's a...: It's a pen.", "class_type": "Vocabulary Focus"},
-    {"theme": "Family", "vocab": "mum, dad, sister, brother, baby, family", "grammar": "This is my...: This is my mum.", "class_type": "Vocabulary Focus"},
-    {"theme": "Pets & animals", "vocab": "cat, dog, bird, fish, rabbit, hamster", "grammar": "It's a...: It's a cat.", "class_type": "Vocabulary Focus"},
-    {"theme": "Body parts", "vocab": "head, hand, foot, eye, ear, nose", "grammar": "It's my...: It's my hand.", "class_type": "Vocabulary Focus"},
-    {"theme": "Fruit & food", "vocab": "apple, bread, milk, egg, banana, water", "grammar": "It's a/an...: It's an apple.", "class_type": "Vocabulary Focus"},
-    {"theme": "Toys", "vocab": "ball, doll, kite, car, teddy bear, blocks", "grammar": "It's a...: It's a ball.", "class_type": "Vocabulary Focus"},
-    {"theme": "Clothes", "vocab": "hat, shoes, coat, dress, t-shirt, socks", "grammar": "It's a/are...: It's a hat. They are shoes.", "class_type": "Vocabulary Focus"},
-    {"theme": "Weather", "vocab": "sunny, rainy, cold, hot, windy, cloudy", "grammar": "It's + weather word: It's sunny.", "class_type": "Vocabulary Focus"},
-    {"theme": "Shapes", "vocab": "circle, square, triangle, star, heart, box", "grammar": "It's a...: It's a circle.", "class_type": "Vocabulary Focus"},
-    {"theme": "Numbers 11-20", "vocab": "eleven to twenty", "grammar": "Counting extension, How many?", "class_type": "Vocabulary Focus"},
-    {"theme": "Farm animals", "vocab": "cow, sheep, horse, duck, pig, hen", "grammar": "It's a...: It's a cow.", "class_type": "Vocabulary Focus"},
-    {"theme": "Transport", "vocab": "car, bus, train, bike, plane, boat", "grammar": "It's a...: It's a car.", "class_type": "Vocabulary Focus"},
-    {"theme": "Review & end-of-year show", "vocab": "review of favourite words from the year", "grammar": "Review: It's a.../This is my.../My name is...", "class_type": "Review"},
+    {
+        "theme": "Hello & introductions", "class_type": "Vocabulary Focus",
+        "a": {"focus": "greetings", "vocab": "hello, hi, goodbye, bye, yes, no", "grammar": "Hello! Goodbye! Yes. No."},
+        "b": {"focus": "names", "vocab": "name, boy, girl, friend, teacher, I'm", "grammar": "My name is... What's your name? I'm..."},
+    },
+    {
+        "theme": "Colours", "class_type": "Vocabulary Focus",
+        "a": {"focus": "primary colours", "vocab": "red, blue, yellow, green, black, white", "grammar": "It's + colour: It's red."},
+        "b": {"focus": "more colours", "vocab": "pink, orange, purple, brown, grey, colour", "grammar": "What colour is it? It's pink."},
+    },
+    {
+        "theme": "Numbers 1-10", "class_type": "Vocabulary Focus",
+        "a": {"focus": "one to five", "vocab": "one, two, three, four, five, count", "grammar": "Counting: one, two, three..."},
+        "b": {"focus": "six to ten", "vocab": "six, seven, eight, nine, ten, how many", "grammar": "How many? Six! Counting objects."},
+    },
+    {
+        "theme": "Classroom objects", "class_type": "Vocabulary Focus",
+        "a": {"focus": "things on my desk", "vocab": "pen, book, bag, chair, table, pencil", "grammar": "It's a...: It's a pen."},
+        "b": {"focus": "things in the room", "vocab": "rubber, ruler, desk, board, door, window", "grammar": "What is it? It's a ruler."},
+    },
+    {
+        "theme": "Family", "class_type": "Vocabulary Focus",
+        "a": {"focus": "close family", "vocab": "mum, dad, sister, brother, baby, family", "grammar": "This is my...: This is my mum."},
+        "b": {"focus": "the wider family", "vocab": "grandma, grandpa, aunt, uncle, friend, me", "grammar": "Who is it? This is my grandma."},
+    },
+    {
+        "theme": "Pets & animals", "class_type": "Vocabulary Focus",
+        "a": {"focus": "pets", "vocab": "cat, dog, bird, fish, rabbit, hamster", "grammar": "It's a...: It's a cat."},
+        "b": {"focus": "big and small", "vocab": "big, small, mouse, horse, snake, parrot", "grammar": "It's a big/small...: It's a big horse."},
+    },
+    {
+        "theme": "Body parts", "class_type": "Vocabulary Focus",
+        "a": {"focus": "head and hands", "vocab": "head, hand, foot, eye, ear, nose", "grammar": "It's my...: It's my hand."},
+        "b": {"focus": "the whole body", "vocab": "arm, leg, mouth, hair, face, finger", "grammar": "This is my...: This is my arm."},
+    },
+    {
+        "theme": "Fruit & food", "class_type": "Vocabulary Focus",
+        "a": {"focus": "fruit", "vocab": "apple, banana, orange, pear, grapes, strawberry", "grammar": "It's a/an...: It's an apple."},
+        "b": {"focus": "food and drink", "vocab": "bread, milk, egg, water, cheese, cake", "grammar": "It's a cake. It's milk."},
+    },
+    {
+        "theme": "Toys", "class_type": "Vocabulary Focus",
+        "a": {"focus": "classic toys", "vocab": "ball, doll, kite, car, teddy bear, blocks", "grammar": "It's a...: It's a ball."},
+        "b": {"focus": "my toys", "vocab": "robot, train, puzzle, bike, drum, game", "grammar": "It's my...: It's my robot."},
+    },
+    {
+        "theme": "Clothes", "class_type": "Vocabulary Focus",
+        "a": {"focus": "one item", "vocab": "hat, shoes, coat, dress, t-shirt, socks", "grammar": "It's a hat."},
+        "b": {"focus": "two items", "vocab": "skirt, trousers, jumper, jeans, scarf, gloves", "grammar": "They are trousers. They are jeans."},
+    },
+    {
+        "theme": "Weather", "class_type": "Vocabulary Focus",
+        "a": {"focus": "everyday weather", "vocab": "sunny, rainy, cold, hot, windy, cloudy", "grammar": "It's + weather word: It's sunny."},
+        "b": {"focus": "more weather", "vocab": "snowy, foggy, stormy, warm, cool, rainbow", "grammar": "It's snowy. It's a rainbow!"},
+    },
+    {
+        "theme": "Shapes", "class_type": "Vocabulary Focus",
+        "a": {"focus": "shapes", "vocab": "circle, square, triangle, star, heart, box", "grammar": "It's a...: It's a circle."},
+        "b": {"focus": "colour + shape", "vocab": "red star, blue heart, green triangle, yellow circle, black square, white box", "grammar": "It's a red star. (colour + shape)"},
+    },
+    {
+        "theme": "Numbers 11-20", "class_type": "Vocabulary Focus",
+        "a": {"focus": "eleven to fifteen", "vocab": "eleven, twelve, thirteen, fourteen, fifteen, count", "grammar": "Counting 11-15."},
+        "b": {"focus": "sixteen to twenty", "vocab": "sixteen, seventeen, eighteen, nineteen, twenty, how many", "grammar": "How many? Counting 16-20."},
+    },
+    {
+        "theme": "Farm animals", "class_type": "Vocabulary Focus",
+        "a": {"focus": "one animal", "vocab": "cow, sheep, horse, goat, donkey, farm", "grammar": "It's a...: It's a cow."},
+        "b": {"focus": "two or more animals", "vocab": "duck, pig, hen, chick, turkey, goose", "grammar": "They are ducks. They are pigs."},
+    },
+    {
+        "theme": "Transport", "class_type": "Vocabulary Focus",
+        "a": {"focus": "everyday transport", "vocab": "car, bus, train, bike, plane, boat", "grammar": "It's a...: It's a car."},
+        "b": {"focus": "big and small vehicles", "vocab": "taxi, tram, lorry, ship, helicopter, scooter", "grammar": "It's a big red bus. (size + colour + noun)"},
+    },
+    {
+        "theme": "Review & end-of-year show", "class_type": "Review",
+        "a": {"focus": "colours, numbers, classroom", "vocab": "review: colours, numbers 1-20, classroom objects", "grammar": "Review: It's a.../What colour is it?"},
+        "b": {"focus": "family, animals, food", "vocab": "review: family, animals, food, toys, clothes", "grammar": "Review: This is my.../They are.../My name is..."},
+    },
 ])
 
 # Band 1 — CM1 (ages 9-10, the year before CM2). Present Simple, have got,
 # can/can't, Do/Does questions. Deliberately distinct progression from CM2
 # (CM2 already has its own detailed year, one grade ahead).
 CM1_CURRICULUM = build_weekly_curriculum([
-    {"theme": "All about me", "vocab": "name, age, hello, nice to meet you", "grammar": "I am / My name is / I am nine.", "class_type": "Vocabulary Focus"},
-    {"theme": "Family", "vocab": "mum, dad, brother, sister, grandma, grandpa", "grammar": "Have got: I've got a brother.", "class_type": "Grammar Focus"},
-    {"theme": "School subjects", "vocab": "maths, English, art, sport, music, break", "grammar": "Do you like...? Yes I do / No I don't.", "class_type": "Grammar Focus"},
-    {"theme": "Age & counting", "vocab": "numbers to 20, old, young, birthday", "grammar": "How old are you? I am nine.", "class_type": "Grammar Focus"},
-    {"theme": "Pets & animals", "vocab": "dog, cat, rabbit, fish, hamster, bird", "grammar": "Have got: I've got a dog. He's got a cat.", "class_type": "Grammar Focus"},
-    {"theme": "Daily routine", "vocab": "wake up, eat breakfast, go to school, sleep", "grammar": "Present Simple he/she: She wakes up at 7.", "class_type": "Grammar Focus"},
-    {"theme": "Food & likes", "vocab": "pizza, chocolate, vegetables, fruit, like", "grammar": "Do you like...? Yes I do / No I don't.", "class_type": "Grammar Focus"},
-    {"theme": "Sports & abilities", "vocab": "swim, run, jump, play football, ride a bike", "grammar": "Can/can't: I can swim. I can't fly.", "class_type": "Grammar Focus"},
-    {"theme": "My house", "vocab": "bedroom, kitchen, garden, big, small", "grammar": "Have got: My house has got a garden.", "class_type": "Grammar Focus"},
-    {"theme": "Hobbies", "vocab": "draw, read, dance, play games, watch TV", "grammar": "Present Simple: I play football on Saturdays.", "class_type": "Grammar Focus"},
-    {"theme": "Clothes & weather", "vocab": "coat, hat, boots, cold, hot, rain", "grammar": "Present Simple: I wear a coat when it's cold.", "class_type": "Grammar Focus"},
-    {"theme": "Jobs", "vocab": "teacher, doctor, farmer, works, every day", "grammar": "Present Simple -s: My dad is a teacher. He works...", "class_type": "Grammar Focus"},
-    {"theme": "Time & schedule", "vocab": "o'clock, morning, afternoon, evening", "grammar": "Do/Does questions: What time do you wake up?", "class_type": "Grammar Focus"},
-    {"theme": "Animal abilities", "vocab": "fly, swim, climb, run fast, jump high", "grammar": "Can/can't: Birds can fly. Fish can't walk.", "class_type": "Grammar Focus"},
-    {"theme": "Free time", "vocab": "weekend, friends, park, games, fun", "grammar": "Present Simple review, mixed persons.", "class_type": "Review"},
-    {"theme": "All about me — review", "vocab": "review of the year's topics", "grammar": "Full review: have got, can/can't, Present Simple.", "class_type": "Review"},
+    {
+        "theme": "All about me", "class_type": "Vocabulary Focus",
+        "a": {"focus": "greetings & names", "vocab": "name, hello, nice to meet you, I am, my, your", "grammar": "I am... / My name is... / Nice to meet you."},
+        "b": {"focus": "age & home", "vocab": "how old, nine, ten, eleven, France, live", "grammar": "How old are you? I am nine. I live in France."},
+    },
+    {
+        "theme": "Family", "class_type": "Grammar Focus",
+        "a": {"focus": "I have got", "vocab": "mum, dad, brother, sister, grandma, grandpa", "grammar": "Have got: I've got a brother."},
+        "b": {"focus": "he/she has got", "vocab": "cousin, aunt, uncle, baby, big, small", "grammar": "He's got / She's got: She's got two cousins."},
+    },
+    {
+        "theme": "School subjects", "class_type": "Grammar Focus",
+        "a": {"focus": "saying what I like", "vocab": "maths, English, art, sport, music, break", "grammar": "I like maths. I don't like art."},
+        "b": {"focus": "asking what you like", "vocab": "science, French, history, lunch, teacher, favourite", "grammar": "Do you like...? Yes, I do. / No, I don't."},
+    },
+    {
+        "theme": "Age & counting", "class_type": "Grammar Focus",
+        "a": {"focus": "my age & birthday", "vocab": "birthday, old, young, numbers to 20, month, today", "grammar": "How old are you? I am nine. My birthday is in May."},
+        "b": {"focus": "other people's ages", "vocab": "twenty, thirty, forty, fifty, sixty, hundred", "grammar": "He is / She is + number: My mum is forty."},
+    },
+    {
+        "theme": "Pets & animals", "class_type": "Grammar Focus",
+        "a": {"focus": "describing my pet", "vocab": "dog, cat, rabbit, fish, hamster, bird", "grammar": "I've got a dog. It's big. It's brown."},
+        "b": {"focus": "asking about pets", "vocab": "pet, name, black, white, brown, what", "grammar": "Have you got a pet? Yes, I have. / No, I haven't."},
+    },
+    {
+        "theme": "Daily routine", "class_type": "Grammar Focus",
+        "a": {"focus": "my day (I)", "vocab": "wake up, get up, wash, eat breakfast, go to school, come home", "grammar": "Present Simple I: I wake up at seven."},
+        "b": {"focus": "his/her day (he/she)", "vocab": "play, do homework, eat dinner, watch TV, go to bed, sleep", "grammar": "Present Simple he/she: She wakes up at 7. He goes to bed."},
+    },
+    {
+        "theme": "Food & likes", "class_type": "Grammar Focus",
+        "a": {"focus": "likes & dislikes", "vocab": "pizza, chocolate, vegetables, fruit, cheese, ice cream", "grammar": "I like pizza. I don't like fish."},
+        "b": {"focus": "asking & answering", "vocab": "chicken, rice, pasta, soup, juice, milk", "grammar": "Do you like...? Does he like...? Yes, he does. / No, he doesn't."},
+    },
+    {
+        "theme": "Sports & abilities", "class_type": "Grammar Focus",
+        "a": {"focus": "I can / I can't", "vocab": "swim, run, jump, ride a bike, play football, dance", "grammar": "Can/can't: I can swim. I can't fly."},
+        "b": {"focus": "asking about abilities", "vocab": "sing, draw, climb, skate, cook, play the guitar", "grammar": "Can you...? Yes, I can. / No, I can't. He can run."},
+    },
+    {
+        "theme": "My house", "class_type": "Grammar Focus",
+        "a": {"focus": "rooms", "vocab": "bedroom, kitchen, bathroom, garden, living room, big", "grammar": "My house has got a garden. It's big."},
+        "b": {"focus": "things in my room", "vocab": "bed, table, sofa, TV, lamp, window", "grammar": "I've got a big bed. My bedroom has got a lamp."},
+    },
+    {
+        "theme": "Hobbies", "class_type": "Grammar Focus",
+        "a": {"focus": "what I do", "vocab": "draw, read, dance, play games, watch TV, listen to music", "grammar": "Present Simple: I play football on Saturdays."},
+        "b": {"focus": "what he/she does", "vocab": "football, tennis, guitar, piano, chess, cards", "grammar": "Present Simple -s: He plays tennis. She reads. Do you play...?"},
+    },
+    {
+        "theme": "Clothes & weather", "class_type": "Grammar Focus",
+        "a": {"focus": "clothes", "vocab": "coat, hat, boots, scarf, jumper, gloves", "grammar": "I wear a coat. She wears boots."},
+        "b": {"focus": "weather & clothes", "vocab": "cold, hot, rainy, sunny, snowy, windy", "grammar": "It's rainy. I wear boots when it's rainy."},
+    },
+    {
+        "theme": "Jobs", "class_type": "Grammar Focus",
+        "a": {"focus": "who they are", "vocab": "teacher, doctor, farmer, nurse, driver, cook", "grammar": "My dad is a teacher. She is a doctor."},
+        "b": {"focus": "where they work", "vocab": "school, hospital, farm, shop, restaurant, office", "grammar": "He works in a school. Where does she work?"},
+    },
+    {
+        "theme": "Time & schedule", "class_type": "Grammar Focus",
+        "a": {"focus": "telling the time", "vocab": "o'clock, half past, morning, afternoon, evening, night", "grammar": "What time is it? It's seven o'clock."},
+        "b": {"focus": "when I do things", "vocab": "wake up, lunch, dinner, school, bed, at", "grammar": "What time do you wake up? I wake up at seven."},
+    },
+    {
+        "theme": "Animal abilities", "class_type": "Grammar Focus",
+        "a": {"focus": "what animals can do", "vocab": "fly, swim, climb, run, jump, walk", "grammar": "Can/can't: Birds can fly. Fish can't walk."},
+        "b": {"focus": "asking about animals", "vocab": "monkey, snake, bird, fish, elephant, kangaroo", "grammar": "Can a monkey climb? Yes, it can. / No, it can't."},
+    },
+    {
+        "theme": "Free time", "class_type": "Review",
+        "a": {"focus": "my weekend", "vocab": "weekend, friends, park, games, fun, Saturday", "grammar": "Present Simple review, mixed persons: I play. She goes."},
+        "b": {"focus": "asking about the weekend", "vocab": "Sunday, visit, cinema, family, play, do", "grammar": "What do you do at the weekend? Do you...? Does he...?"},
+    },
+    {
+        "theme": "Year review", "class_type": "Review",
+        "a": {"focus": "review part 1", "vocab": "review: family, pets, school, food, my house", "grammar": "Review: I am, I've got, Do you like...?"},
+        "b": {"focus": "review part 2", "vocab": "review: sports, routines, hobbies, jobs, time", "grammar": "Review: can/can't, Present Simple, What time...?"},
+    },
 ])
 
 # Band 2 — 6e/5e/4e (ages 11-14, all share this band's grammar ceiling).
@@ -247,64 +395,256 @@ CM1_CURRICULUM = build_weekly_curriculum([
 # pushed Present Perfect + Conditional 1 onto this group (band-3 content)
 # is not carried over here.
 BAND2_CURRICULUM = build_weekly_curriculum([
-    {"theme": "Introductions & routines", "vocab": "introduce yourself, hobbies, school, family", "grammar": "Present Simple review: I go to school by bus.", "class_type": "Review"},
-    {"theme": "Daily routines + frequency", "vocab": "always, usually, sometimes, never, routine", "grammar": "Present Simple + adverbs of frequency.", "class_type": "Grammar Focus"},
-    {"theme": "What's happening now", "vocab": "right now, at the moment, look, listen", "grammar": "Present Continuous: What are you doing?", "class_type": "Grammar Focus"},
-    {"theme": "Be/have & personal info", "vocab": "hungry, cold, tired, right, have got", "grammar": "Be/have traps: I am hungry (not I have hungry).", "class_type": "Grammar Focus"},
-    {"theme": "Yesterday (regular verbs)", "vocab": "watched, played, walked, cooked, yesterday", "grammar": "Past Simple regular verbs.", "class_type": "Grammar Focus"},
-    {"theme": "Yesterday (irregular verbs)", "vocab": "went, saw, ate, had, did, top 10 irregulars", "grammar": "Past Simple top 10 irregular verbs.", "class_type": "Grammar Focus"},
-    {"theme": "School rules", "vocab": "must, mustn't, uniform, homework, allowed", "grammar": "Must/mustn't for obligation and rules.", "class_type": "Grammar Focus"},
-    {"theme": "Comparing things", "vocab": "bigger, smaller, more interesting, than", "grammar": "Comparatives: bigger than, more interesting than.", "class_type": "Grammar Focus"},
-    {"theme": "Future plans", "vocab": "going to, weekend, holiday, plan", "grammar": "Going to for future plans: I'm going to visit...", "class_type": "Grammar Focus"},
-    {"theme": "Hobbies & free time", "vocab": "review of hobby vocabulary", "grammar": "Present Simple/Continuous contrast review.", "class_type": "Review"},
-    {"theme": "Health & advice", "vocab": "should, shouldn't, healthy, tired, sleep", "grammar": "Should/shouldn't for advice.", "class_type": "Grammar Focus"},
-    {"theme": "Past experiences", "vocab": "trip, holiday, last year, ago", "grammar": "Past Simple review, regular + irregular mixed.", "class_type": "Grammar Focus"},
-    {"theme": "Weekend plans extension", "vocab": "more going-to practice, invitations", "grammar": "Going to — extended practice, questions.", "class_type": "Grammar Focus"},
-    {"theme": "Rules & the environment", "vocab": "recycle, mustn't, should, protect", "grammar": "Must/should review in a new context.", "class_type": "Grammar Focus"},
-    {"theme": "Storytelling", "vocab": "review of past-tense vocabulary", "grammar": "Past Simple full review — tell a short story.", "class_type": "Review"},
-    {"theme": "End of year review", "vocab": "review of the year's topics", "grammar": "Mixed review — oral + written checkpoint.", "class_type": "Review"},
+    {
+        "theme": "Introductions & routines", "class_type": "Review",
+        "a": {"focus": "introducing yourself", "vocab": "introduce yourself, hobbies, school, family, favourite", "grammar": "Present Simple review: I am... I like... I go to school by bus."},
+        "b": {"focus": "asking about others", "vocab": "interview, ask, answer, live, come from, partner", "grammar": "Present Simple questions: Where do you live? What do you like?"},
+    },
+    {
+        "theme": "Daily routines + frequency", "class_type": "Grammar Focus",
+        "a": {"focus": "adverbs of frequency", "vocab": "always, usually, often, sometimes, never, routine", "grammar": "Adverbs before the verb: I always eat breakfast."},
+        "b": {"focus": "how often?", "vocab": "every day, once a week, twice a month, on Mondays, weekend, how often", "grammar": "How often do you...? I go swimming twice a week."},
+    },
+    {
+        "theme": "What's happening now", "class_type": "Grammar Focus",
+        "a": {"focus": "statements", "vocab": "right now, at the moment, look, listen, eat, drink", "grammar": "Present Continuous statements: She is eating. They are listening."},
+        "b": {"focus": "questions, negatives & contrast", "vocab": "today, usually, but, wear, wait, run, smile", "grammar": "Are you...? Yes, I am. He isn't sleeping. I usually walk, but today I'm taking the bus."},
+    },
+    {
+        "theme": "Be/have & personal info", "class_type": "Grammar Focus",
+        "a": {"focus": "feelings with be", "vocab": "hungry, cold, tired, thirsty, hot, afraid", "grammar": "Be for feelings: I am hungry (not I have hungry)."},
+        "b": {"focus": "age & have got", "vocab": "years old, old, right, wrong, have got, brother", "grammar": "I am twelve (not I have twelve years). I've got a brother."},
+    },
+    {
+        "theme": "Yesterday (regular verbs)", "class_type": "Grammar Focus",
+        "a": {"focus": "affirmative", "vocab": "watched, played, walked, cooked, yesterday, last night", "grammar": "Past Simple regular verbs: I watched TV yesterday."},
+        "b": {"focus": "negatives & questions", "vocab": "cleaned, listened, helped, visited, ago, did", "grammar": "I didn't watch TV. Did you play? Yes, I did. / No, I didn't."},
+    },
+    {
+        "theme": "Yesterday (irregular verbs)", "class_type": "Grammar Focus",
+        "a": {"focus": "go, see, eat, have, come, do", "vocab": "went, saw, ate, had, came, did", "grammar": "Past Simple irregular: I went to the park. She saw a film."},
+        "b": {"focus": "make, take, get, give + questions", "vocab": "made, took, got, gave, didn't, did", "grammar": "Did you see...? I didn't eat. He made a cake."},
+    },
+    {
+        "theme": "School rules", "class_type": "Grammar Focus",
+        "a": {"focus": "must", "vocab": "must, uniform, homework, listen, be on time, rule", "grammar": "Must for obligation: You must wear a uniform."},
+        "b": {"focus": "mustn't", "vocab": "mustn't, phone, run, shout, cheat, late", "grammar": "Mustn't for prohibition: You mustn't use your phone in class."},
+    },
+    {
+        "theme": "Comparing things", "class_type": "Grammar Focus",
+        "a": {"focus": "short adjectives", "vocab": "bigger, smaller, taller, faster, older, than", "grammar": "Comparatives: Tom is taller than Ben."},
+        "b": {"focus": "long adjectives", "vocab": "more interesting, more expensive, more difficult, more beautiful, better, worse", "grammar": "More + adjective: Maths is more difficult than art."},
+    },
+    {
+        "theme": "Future plans", "class_type": "Grammar Focus",
+        "a": {"focus": "statements", "vocab": "going to, weekend, holiday, plan, tomorrow, visit", "grammar": "Going to for future plans: I'm going to visit my cousins. I'm not going to..."},
+        "b": {"focus": "questions & answers", "vocab": "next week, tonight, travel, invite, buy, invitation", "grammar": "Are you going to...? Yes, I am. What are you going to do?"},
+    },
+    {
+        "theme": "Hobbies & free time", "class_type": "Review",
+        "a": {"focus": "habits (Present Simple)", "vocab": "review of hobby vocabulary, club, team, practise, often, weekend", "grammar": "Present Simple: What do you do in your free time?"},
+        "b": {"focus": "now vs habits", "vocab": "at the moment, today, usually, but, join, watch", "grammar": "Present Simple vs Continuous contrast: I usually play, but now I am reading."},
+    },
+    {
+        "theme": "Health & advice", "class_type": "Grammar Focus",
+        "a": {"focus": "should / shouldn't", "vocab": "should, shouldn't, healthy, sleep, drink water, exercise", "grammar": "Should/shouldn't for advice: You should drink water."},
+        "b": {"focus": "symptoms & advice", "vocab": "headache, stomachache, cold, doctor, medicine, rest", "grammar": "What's the matter? I've got a headache. You should see a doctor."},
+    },
+    {
+        "theme": "Past experiences", "class_type": "Grammar Focus",
+        "a": {"focus": "telling", "vocab": "trip, holiday, last year, ago, last summer, visited", "grammar": "Past Simple regular + irregular mixed: Last summer I went to Spain."},
+        "b": {"focus": "asking", "vocab": "where, who, what, when, how, with", "grammar": "Where did you go? What did you do? Who did you see?"},
+    },
+    {
+        "theme": "Weekend plans extension", "class_type": "Grammar Focus",
+        "a": {"focus": "invitations", "vocab": "invite, party, cinema, picnic, join, let's", "grammar": "Would you like to come? Let's go! I'm going to..."},
+        "b": {"focus": "reasons & times", "vocab": "tonight, next Saturday, because, so, after school, plan", "grammar": "Going to + because: I'm going to stay home because I'm tired."},
+    },
+    {
+        "theme": "Rules & the environment", "class_type": "Grammar Focus",
+        "a": {"focus": "must / mustn't", "vocab": "recycle, waste, plastic, save water, protect, mustn't", "grammar": "We must recycle. We mustn't waste water."},
+        "b": {"focus": "should for suggestions", "vocab": "turn off, bin, energy, plant trees, pollution, planet", "grammar": "We should turn off the lights. What should we do?"},
+    },
+    {
+        "theme": "Storytelling", "class_type": "Review",
+        "a": {"focus": "sequence words", "vocab": "first, then, after that, finally, once upon a time, suddenly", "grammar": "Past Simple with sequence words: First he opened the door. Then he..."},
+        "b": {"focus": "was/were & description", "vocab": "was, were, sunny, happy, afraid, dark", "grammar": "Past Simple of be: It was a dark night. They were afraid."},
+    },
+    {
+        "theme": "End of year review", "class_type": "Review",
+        "a": {"focus": "oral checkpoint", "vocab": "review of the year's topics, speaking, partner, ask, answer", "grammar": "Mixed review — oral: present, past, going to."},
+        "b": {"focus": "written checkpoint", "vocab": "review of the year's topics, write, sentence, correct, test", "grammar": "Mixed review — written: must/should, comparatives, questions."},
+    },
 ])
 
 # Band 3 — 3e/2nde (ages 14-16). All past tenses, Conditional 1 & 2, passive,
 # relative clauses. FORBIDDEN: Conditional 3, complex reported speech,
 # subjunctive — simple reported speech (basic backshift) is fine here.
 BAND3_CURRICULUM = build_weekly_curriculum([
-    {"theme": "Settling in — past review", "vocab": "review of Past Simple from previous years", "grammar": "Past Simple review — narrating last summer.", "class_type": "Review"},
-    {"theme": "In the middle of it", "vocab": "was/were + -ing, interrupted, while", "grammar": "Past Continuous: I was watching TV when...", "class_type": "Grammar Focus"},
-    {"theme": "Life experiences", "vocab": "have been, have never, ever, already", "grammar": "Present Perfect for experience: I have been to...", "class_type": "Grammar Focus"},
-    {"theme": "Real possibilities", "vocab": "if, will, possible, decision", "grammar": "Conditional 1: If it rains, I will stay home.", "class_type": "Grammar Focus"},
-    {"theme": "Imagining things", "vocab": "if, would, imagine, hypothetical", "grammar": "Conditional 2: If I were rich, I would travel.", "class_type": "Grammar Focus"},
-    {"theme": "What was done", "vocab": "was/were + past participle, by", "grammar": "Passive voice: The window was broken.", "class_type": "Grammar Focus"},
-    {"theme": "Describing people & things", "vocab": "who, which, that, relative clause", "grammar": "Relative clauses: The man who lives next door...", "class_type": "Grammar Focus"},
-    {"theme": "Telling a story", "vocab": "review of past-tense vocabulary", "grammar": "Mixed past tenses in narrative.", "class_type": "Grammar Focus"},
-    {"theme": "Opinions & debate", "vocab": "in my opinion, I think, agree, disagree", "grammar": "Conditional 1 & 2 review in argument context.", "class_type": "Review"},
-    {"theme": "Global issues", "vocab": "environment, pollution, solution, protect", "grammar": "Passive + relative clauses in context.", "class_type": "Grammar Focus"},
-    {"theme": "Reporting what people say", "vocab": "said, told, that, reported", "grammar": "Simple reported speech: She said she was tired.", "class_type": "Grammar Focus"},
-    {"theme": "News & media", "vocab": "headline, announced, confirmed, report", "grammar": "Passive review in news context.", "class_type": "Grammar Focus"},
-    {"theme": "Ambitions & the future", "vocab": "hope, dream, would like to, career", "grammar": "Conditional 2 review — hypothetical futures.", "class_type": "Grammar Focus"},
-    {"theme": "Culture & travel", "vocab": "review of travel/culture vocabulary", "grammar": "Relative clauses — extended practice.", "class_type": "Grammar Focus"},
-    {"theme": "Mixed review", "vocab": "review of the year's topics", "grammar": "Mixed past tenses + conditionals review.", "class_type": "Review"},
-    {"theme": "Exam preparation", "vocab": "review of the year's topics", "grammar": "Full mock exam — oral + written.", "class_type": "Assessment"},
+    {
+        "theme": "Settling in — past review", "class_type": "Review",
+        "a": {"focus": "regular verbs & time expressions", "vocab": "last summer, ago, yesterday, in 2020, visited, decided, stayed", "grammar": "Past Simple review — narrating last summer."},
+        "b": {"focus": "irregular verbs & questions", "vocab": "went, met, bought, wrote, took, did you, where, who", "grammar": "Past Simple questions and irregular verbs: Where did you go? Who did you meet?"},
+    },
+    {
+        "theme": "In the middle of it", "class_type": "Grammar Focus",
+        "a": {"focus": "Past Continuous", "vocab": "was/were + -ing, at eight o'clock, all evening, watching, cooking, waiting", "grammar": "Past Continuous: I was watching TV at eight."},
+        "b": {"focus": "Past Simple vs Continuous", "vocab": "when, while, interrupted, suddenly, rang, arrived", "grammar": "I was walking when I saw an accident. While she was cooking, the phone rang."},
+    },
+    {
+        "theme": "Life experiences", "class_type": "Grammar Focus",
+        "a": {"focus": "ever / never", "vocab": "have been, have never, ever, tried, seen, eaten", "grammar": "Present Perfect for experience: Have you ever been to London?"},
+        "b": {"focus": "already / yet / just, for / since", "vocab": "already, yet, just, for, since, been vs gone", "grammar": "I've just finished. She hasn't called yet. I've lived here since 2019."},
+    },
+    {
+        "theme": "Real possibilities", "class_type": "Grammar Focus",
+        "a": {"focus": "Conditional 1 statements", "vocab": "if, will, possible, decision, weather, plan", "grammar": "Conditional 1: If it rains, I will stay home."},
+        "b": {"focus": "questions, unless & when", "vocab": "unless, when, what will you do, promise, warn, probably", "grammar": "What will you do if...? Unless you hurry, you will be late."},
+    },
+    {
+        "theme": "Imagining things", "class_type": "Grammar Focus",
+        "a": {"focus": "Conditional 2 statements", "vocab": "if, would, imagine, hypothetical, rich, famous", "grammar": "Conditional 2: If I were rich, I would travel."},
+        "b": {"focus": "questions & advice", "vocab": "if I were you, advice, what would you do, choice, dream, wish", "grammar": "What would you do if...? If I were you, I would..."},
+    },
+    {
+        "theme": "What was done", "class_type": "Grammar Focus",
+        "a": {"focus": "passive statements", "vocab": "was built, was invented, is spoken, is made, was painted, by", "grammar": "Passive voice: The window was broken. English is spoken here."},
+        "b": {"focus": "passive questions & agent", "vocab": "who was it written by, when was it invented, discovered, designed, founded, by", "grammar": "Was it built by...? When was it invented?"},
+    },
+    {
+        "theme": "Describing people & things", "class_type": "Grammar Focus",
+        "a": {"focus": "who / which", "vocab": "who, which, neighbour, colleague, thing, person", "grammar": "Relative clauses: The man who lives next door is a doctor."},
+        "b": {"focus": "that / where / whose", "vocab": "that, where, whose, place, city, owner", "grammar": "The town where I grew up... The girl whose bag is red..."},
+    },
+    {
+        "theme": "Telling a story", "class_type": "Grammar Focus",
+        "a": {"focus": "setting the scene", "vocab": "one day, at first, meanwhile, in the end, suddenly, afterwards", "grammar": "Past Simple + Past Continuous in narrative with linkers."},
+        "b": {"focus": "earlier events", "vocab": "had already, before, by the time, after, realised, discovered", "grammar": "Past Perfect: When I arrived, the film had started."},
+    },
+    {
+        "theme": "Opinions & debate", "class_type": "Review",
+        "a": {"focus": "giving opinions", "vocab": "in my opinion, I think, agree, disagree, reason, because", "grammar": "Opinions supported with Conditional 1: If we do this, it will help."},
+        "b": {"focus": "counter-arguments", "vocab": "however, on the other hand, although, in contrast, point, argument", "grammar": "Conditional 2 in argument: If schools were free, more people would study."},
+    },
+    {
+        "theme": "Global issues", "class_type": "Grammar Focus",
+        "a": {"focus": "problems (passive)", "vocab": "environment, pollution, is caused by, was destroyed, threatened, waste", "grammar": "Passive in context: Forests are being cut down. Rivers are polluted."},
+        "b": {"focus": "solutions (relative clauses)", "vocab": "solution, protect, people who, companies that, a plan which, recycle", "grammar": "Relative clauses in context: People who recycle help the planet."},
+    },
+    {
+        "theme": "Reporting what people say", "class_type": "Grammar Focus",
+        "a": {"focus": "reported statements", "vocab": "said, told, that, reported, admitted, explained", "grammar": "Simple reported speech: She said she was tired."},
+        "b": {"focus": "say vs tell, requests", "vocab": "told me to, asked me to, say, tell, ordered, warned", "grammar": "She told me to sit down. He said that he was busy."},
+    },
+    {
+        "theme": "News & media", "class_type": "Grammar Focus",
+        "a": {"focus": "headlines", "vocab": "headline, announced, confirmed, rescued, arrested, elected", "grammar": "Passive in headlines: Three people were rescued."},
+        "b": {"focus": "news reports", "vocab": "report, witness, according to, reporter, incident, police", "grammar": "News report: Past Simple + Past Continuous + passive together."},
+    },
+    {
+        "theme": "Ambitions & the future", "class_type": "Grammar Focus",
+        "a": {"focus": "what I want", "vocab": "hope, dream, would like to, career, want to, plan to", "grammar": "I would like to be... I hope to study..."},
+        "b": {"focus": "imagined futures", "vocab": "if I became, would earn, would live, abroad, success, salary", "grammar": "Conditional 2: If I became a doctor, I would help people."},
+    },
+    {
+        "theme": "Culture & travel", "class_type": "Grammar Focus",
+        "a": {"focus": "describing places", "vocab": "monument, tradition, festival, region, which, where", "grammar": "Relative clauses: Paris is a city which attracts millions of tourists."},
+        "b": {"focus": "travel stories", "vocab": "journey, abroad, sightseeing, souvenir, have visited, was amazed", "grammar": "Present Perfect experiences + Past Simple details: I have been to Rome. I visited the Colosseum."},
+    },
+    {
+        "theme": "Mixed review", "class_type": "Review",
+        "a": {"focus": "past tenses review", "vocab": "review of the year's topics, narrative, timeline, memory, event", "grammar": "Mixed past tenses: Simple, Continuous, Perfect."},
+        "b": {"focus": "conditionals & passive review", "vocab": "review of the year's topics, if, would, will, made, built", "grammar": "Conditionals 1 & 2 + passive review."},
+    },
+    {
+        "theme": "Exam preparation", "class_type": "Assessment",
+        "a": {"focus": "mock oral", "vocab": "review of the year's topics, describe, opinion, question, picture", "grammar": "Full mock exam — oral."},
+        "b": {"focus": "mock written", "vocab": "review of the year's topics, essay, email, paragraph, correct", "grammar": "Full mock exam — written."},
+    },
 ])
 
 # Band 4 — 1ère/Terminale (ages 16-18). Full grammar range, no vocab limit.
 BAND4_CURRICULUM = build_weekly_curriculum([
-    {"theme": "Settling in — advanced review", "vocab": "no fixed limit", "grammar": "Mixed tense review, advanced self-presentation.", "class_type": "Review"},
-    {"theme": "Regrets", "vocab": "no fixed limit", "grammar": "Conditional 3: If I had studied, I would have passed.", "class_type": "Grammar Focus"},
-    {"theme": "Reporting in detail", "vocab": "no fixed limit", "grammar": "Complex reported speech with backshift.", "class_type": "Grammar Focus"},
-    {"theme": "Formal suggestions", "vocab": "no fixed limit", "grammar": "Subjunctive: It is essential that he be on time.", "class_type": "Grammar Focus"},
-    {"theme": "Debate & persuasion", "vocab": "no fixed limit", "grammar": "Mixed advanced structures in argument.", "class_type": "Grammar Focus"},
-    {"theme": "Media literacy", "vocab": "no fixed limit", "grammar": "Passive + reported speech in news analysis.", "class_type": "Grammar Focus"},
-    {"theme": "Culture & literature", "vocab": "no fixed limit", "grammar": "Relative clauses + nuanced vocabulary.", "class_type": "Grammar Focus"},
-    {"theme": "Global issues & solutions", "vocab": "no fixed limit", "grammar": "Conditional 2 & 3 mixed — proposing solutions.", "class_type": "Grammar Focus"},
-    {"theme": "University & career", "vocab": "no fixed limit", "grammar": "Formal register, subjunctive practice.", "class_type": "Grammar Focus"},
-    {"theme": "Ethics & society", "vocab": "no fixed limit", "grammar": "Abstract discussion, advanced connectors.", "class_type": "Grammar Focus"},
-    {"theme": "Science & technology", "vocab": "no fixed limit", "grammar": "Extended passive voice practice.", "class_type": "Grammar Focus"},
-    {"theme": "History & narrative", "vocab": "no fixed limit", "grammar": "Mixed past tenses + reported speech.", "class_type": "Grammar Focus"},
-    {"theme": "Arts & opinions", "vocab": "no fixed limit", "grammar": "Nuanced opinion language, all tenses.", "class_type": "Grammar Focus"},
-    {"theme": "Mock interview practice", "vocab": "no fixed limit", "grammar": "Full register range — formal oral practice.", "class_type": "Grammar Focus"},
-    {"theme": "Comprehensive review", "vocab": "no fixed limit", "grammar": "Full grammar review, all structures.", "class_type": "Review"},
-    {"theme": "Bac exam preparation", "vocab": "no fixed limit", "grammar": "Full mock exam — oral + written.", "class_type": "Assessment"},
+    {
+        "theme": "Settling in — advanced review", "class_type": "Review",
+        "a": {"focus": "self-presentation", "vocab": "background, goals, strengths, ambitions, personality, interests", "grammar": "Mixed tense review, advanced self-presentation."},
+        "b": {"focus": "accuracy check", "vocab": "error, common mistakes, register, collocation, fluency, nuance", "grammar": "Error correction across all tenses."},
+    },
+    {
+        "theme": "Regrets", "class_type": "Grammar Focus",
+        "a": {"focus": "Conditional 3", "vocab": "regret, missed opportunity, consequence, mistake, if only, would have", "grammar": "Conditional 3: If I had studied, I would have passed."},
+        "b": {"focus": "wish / if only", "vocab": "wish, if only, I should have, blame, apologise, forgive", "grammar": "I wish I had... If only I had... I should have..."},
+    },
+    {
+        "theme": "Reporting in detail", "class_type": "Grammar Focus",
+        "a": {"focus": "reported statements & questions", "vocab": "claimed, denied, announced, enquired, backshift, according to", "grammar": "Complex reported speech with backshift."},
+        "b": {"focus": "reporting verbs", "vocab": "suggested, insisted, accused, promised, refused, warned", "grammar": "Reporting verbs + patterns: She accused him of lying. He refused to help."},
+    },
+    {
+        "theme": "Formal suggestions", "class_type": "Grammar Focus",
+        "a": {"focus": "the subjunctive", "vocab": "essential, vital, recommend, insist, demand, proposal", "grammar": "Subjunctive: It is essential that he be on time."},
+        "b": {"focus": "formal register", "vocab": "furthermore, nevertheless, hereby, request, kindly, regarding", "grammar": "Formal register: I would be grateful if you could..."},
+    },
+    {
+        "theme": "Debate & persuasion", "class_type": "Grammar Focus",
+        "a": {"focus": "building an argument", "vocab": "claim, evidence, counter-argument, persuade, rebuttal, conclusion", "grammar": "Advanced connectors and mixed structures in argument."},
+        "b": {"focus": "responding & rebutting", "vocab": "concede, dismiss, undermine, valid, flawed, nevertheless", "grammar": "Concession and contrast: Admittedly..., that said..."},
+    },
+    {
+        "theme": "Media literacy", "class_type": "Grammar Focus",
+        "a": {"focus": "analysing the news", "vocab": "bias, source, headline, propaganda, credible, fake news", "grammar": "Passive + reported speech in news analysis."},
+        "b": {"focus": "writing a critique", "vocab": "objective, subjective, imply, reliability, editorial, sponsored", "grammar": "Hedging and evaluative language: It appears that... The article suggests..."},
+    },
+    {
+        "theme": "Culture & literature", "class_type": "Grammar Focus",
+        "a": {"focus": "analysing a text", "vocab": "theme, narrator, symbolism, plot, character, setting", "grammar": "Relative clauses + nuanced vocabulary for literary analysis."},
+        "b": {"focus": "comparing texts", "vocab": "whereas, resemble, contrast, adaptation, genre, author", "grammar": "Comparison structures: While A..., B... / not only... but also..."},
+    },
+    {
+        "theme": "Global issues & solutions", "class_type": "Grammar Focus",
+        "a": {"focus": "problems & causes", "vocab": "climate change, inequality, poverty, migration, emissions, policy", "grammar": "Conditional 2 & 3 mixed: If we had acted sooner, we would not be facing..."},
+        "b": {"focus": "proposing solutions", "vocab": "implement, legislation, sustainable, invest, renewable, awareness", "grammar": "Proposals: We ought to..., It is high time that we..."},
+    },
+    {
+        "theme": "University & career", "class_type": "Grammar Focus",
+        "a": {"focus": "university life", "vocab": "degree, lecture, application, scholarship, campus, specialise", "grammar": "Formal register, subjunctive practice."},
+        "b": {"focus": "job applications", "vocab": "CV, cover letter, qualification, experience, candidate, interview", "grammar": "Formal writing: I am writing to apply for... I have experience in..."},
+    },
+    {
+        "theme": "Ethics & society", "class_type": "Grammar Focus",
+        "a": {"focus": "moral dilemmas", "vocab": "dilemma, right and wrong, justice, responsibility, consequence, principle", "grammar": "Abstract discussion with advanced connectors."},
+        "b": {"focus": "social change", "vocab": "equality, discrimination, rights, tolerance, reform, movement", "grammar": "Expressing degrees of certainty: It could / must / can't be that..."},
+    },
+    {
+        "theme": "Science & technology", "class_type": "Grammar Focus",
+        "a": {"focus": "discoveries (passive)", "vocab": "invented, discovered, developed, experiment, breakthrough, research", "grammar": "Extended passive voice practice."},
+        "b": {"focus": "AI & the future", "vocab": "artificial intelligence, automation, privacy, algorithm, ethical, data", "grammar": "Future forms and predictions: will be able to, is likely to, by 2050..."},
+    },
+    {
+        "theme": "History & narrative", "class_type": "Grammar Focus",
+        "a": {"focus": "narrating events", "vocab": "empire, revolution, war, treaty, era, leader", "grammar": "Mixed past tenses in historical narrative."},
+        "b": {"focus": "reporting history", "vocab": "historians claim, is believed to, allegedly, source, archive, legacy", "grammar": "Reported speech + impersonal passive: It is said that... He is believed to..."},
+    },
+    {
+        "theme": "Arts & opinions", "class_type": "Grammar Focus",
+        "a": {"focus": "reviewing art", "vocab": "exhibition, masterpiece, critic, performance, composition, audience", "grammar": "Nuanced opinion language, all tenses."},
+        "b": {"focus": "defending taste", "vocab": "subjective, appeal, provocative, refined, mainstream, taste", "grammar": "Evaluative structures: What strikes me is..., I find it..."},
+    },
+    {
+        "theme": "Mock interview practice", "class_type": "Grammar Focus",
+        "a": {"focus": "answering questions", "vocab": "strengths, weaknesses, motivation, achievement, teamwork, challenge", "grammar": "Full register range — formal oral practice."},
+        "b": {"focus": "asking questions", "vocab": "opportunity, responsibilities, prospects, team, expectations, salary", "grammar": "Formal questions: Could you tell me...? I was wondering whether..."},
+    },
+    {
+        "theme": "Comprehensive review", "class_type": "Review",
+        "a": {"focus": "tenses & conditionals", "vocab": "review of the year's topics, all tenses, conditionals", "grammar": "Full grammar review: tenses and conditionals."},
+        "b": {"focus": "passive, reported speech, subjunctive", "vocab": "review of the year's topics, passive, reporting, formal", "grammar": "Full grammar review: passive, reported speech, subjunctive."},
+    },
+    {
+        "theme": "Bac exam preparation", "class_type": "Assessment",
+        "a": {"focus": "mock oral", "vocab": "review of the year's topics, presentation, debate, document", "grammar": "Full mock exam — oral."},
+        "b": {"focus": "mock written", "vocab": "review of the year's topics, essay, synthesis, comprehension", "grammar": "Full mock exam — written."},
+    },
 ])
 
 SCHOOL_CURRICULUM_BY_BAND = {0: BAND0_CURRICULUM, 1: CM1_CURRICULUM, 2: BAND2_CURRICULUM, 3: BAND3_CURRICULUM, 4: BAND4_CURRICULUM}
@@ -322,7 +662,12 @@ BAND_CONSTRAINTS = {
         "grammar_forbidden": "all verb tenses, negation with auxiliaries, questions",
         "max_vocab": 6,
         "vocab_note": "concrete objects only",
-        "max_sheets": 1,
+        # No cap on any band (2026-09-23, Kamal) — the sheet-count limit
+        # was never the point; simplifying the English itself
+        # (grammar_allowed/forbidden, max_vocab above) is what actually
+        # helps French kids. A real CM1 (band 1) class came out with a
+        # single sheet under the old max_sheets: 1 — too aggressive.
+        "max_sheets": None,
         "instruction_max_words": None,
     },
     1: {
@@ -331,7 +676,7 @@ BAND_CONSTRAINTS = {
         "grammar_forbidden": "Present Continuous, past tenses, conditionals, passive",
         "max_vocab": 8,
         "vocab_note": "familiar topics (family, school, food, animals)",
-        "max_sheets": 1,
+        "max_sheets": None,
         "instruction_max_words": None,
     },
     2: {
@@ -340,7 +685,7 @@ BAND_CONSTRAINTS = {
         "grammar_forbidden": "Conditional 2 or 3, past continuous, passive voice, relative clauses",
         "max_vocab": 10,
         "vocab_note": "familiar everyday topics only",
-        "max_sheets": 2,
+        "max_sheets": None,
         "instruction_max_words": 8,
     },
     3: {
@@ -349,7 +694,7 @@ BAND_CONSTRAINTS = {
         "grammar_forbidden": "Conditional 3, reported speech in complex forms, subjunctive",
         "max_vocab": 15,
         "vocab_note": None,
-        "max_sheets": 2,
+        "max_sheets": None,
         "instruction_max_words": None,
     },
     4: {
@@ -358,7 +703,7 @@ BAND_CONSTRAINTS = {
         "grammar_forbidden": None,
         "max_vocab": None,
         "vocab_note": None,
-        "max_sheets": 3,
+        "max_sheets": None,
         "instruction_max_words": None,
     },
 }
@@ -733,5 +1078,30 @@ SPECIAL_TOPICS = [
         "young": {"grammar": "simple yes/no questions and Wh-questions with to be and simple present (What is this? Do you like...?)", "vocab": "basic question words: what, who, where, when"},
         "mid": {"grammar": "yes/no and Wh-questions across present/past simple and continuous, plus question words how much/how many/why", "vocab": "a fuller range of question words and everyday question contexts"},
         "advanced": {"grammar": "question tags, indirect/embedded questions (Could you tell me where...?), and subject vs object questions", "vocab": "polite/indirect question framing for professional and formal contexts"},
+    }},
+    {"key": "irregularverbs", "label": "Irregular Verbs", "theme": "Irregular Verbs", "tiers": {
+        "young": {"grammar": "a few irregular present-tense and plural forms only (have → has, go → goes, do → does; child → children, man → men, foot → feet) — no past tenses", "vocab": "have/has, go/goes, do/does, child/children, man/men, foot/feet"},
+        "mid": {"grammar": "the most common irregular verbs in the past simple (go–went, see–saw, eat–ate, have–had, make–made, take–took, get–got, give–gave, come–came, do–did), taught in small same-sound groups and practised in short sentences; past participles (went–gone) only if the class's level allows them", "vocab": "the top irregular verbs in three forms, grouped by sound pattern (buy–bought, bring–brought, think–thought)"},
+        "advanced": {"grammar": "the full irregular verb table in all three forms (infinitive, past simple, past participle), with confusable pairs (lie/lay, rise/raise) and irregular verbs inside perfect tenses and the passive", "vocab": "irregular verbs in three forms, grouped by pattern, plus commonly confused pairs"},
+    }},
+    {"key": "vocabbuilding", "label": "Vocabulary Building", "theme": "Vocabulary Building", "tiers": {
+        "young": {"grammar": "no new grammar — recycle the class's known structures while learning new words in small topic sets, using pictures, actions and games", "vocab": "a small set of new topic words (max 6), each linked to a picture or action"},
+        "mid": {"grammar": "word families and word-building (noun/verb/adjective forms), common prefixes and suffixes (un-, re-, -ful, -less), synonyms and opposites, and guessing meaning from context", "vocab": "word families, prefixes/suffixes, synonyms/opposites and common collocations (make/do, take/have)"},
+        "advanced": {"grammar": "advanced word formation, collocations, connotation (formal vs informal, positive vs negative), idioms and phrasal verbs, and choosing the most precise word", "vocab": "academic and idiomatic vocabulary, collocations, and register pairs"},
+    }},
+    {"key": "tensesrun", "label": "Tenses Run-through", "theme": "Tenses Run-through", "tiers": {
+        "young": {"grammar": "a friendly run-through of only the structures this class already knows (to be, have got, can/can't, present simple), with quick contrasts between them and lots of speaking", "vocab": "high-frequency verbs already taught"},
+        "mid": {"grammar": "a run-through of the tenses the class has met (present simple and continuous, past simple, going to; at B1 also past continuous and present perfect), using time lines and signal words (always, now, yesterday, tomorrow, already, ever) to choose the right one", "vocab": "time expressions and signal words for each tense"},
+        "advanced": {"grammar": "a full run-through of every tense on one timeline (simple, continuous, perfect and perfect continuous, past perfect, future forms), with signal words, contrasts and error correction", "vocab": "time expressions, signal words and linking words for narrative and formal writing"},
+    }},
+    {"key": "mocktest", "label": "Mock Test", "theme": "Mock Test", "tiers": {
+        "young": {"grammar": "a short, friendly check-up (no pressure): listen and tick, read and match, write short answers — using only the language this class has already learnt", "vocab": "the words and structures taught so far this term"},
+        "mid": {"grammar": "an exam-style mock in the style of the school's tests / DELF A2–B1: listening, reading comprehension, short written expression and a short oral, all on grammar the class has already met, with timing and exam tips", "vocab": "exam instruction words (tick, circle, complete, underline) and the year's vocabulary"},
+        "advanced": {"grammar": "a full exam-style mock (Bac / Cambridge style): listening, reading comprehension, opinion or argument writing, and an oral presentation, with timing, marking criteria and exam technique", "vocab": "exam task vocabulary, linking words and formal register"},
+    }},
+    {"key": "phonetics", "label": "Pronunciation & Phonetics", "theme": "Pronunciation & Phonetics", "tiers": {
+        "young": {"grammar": "phonics: letter–sound links, short and long vowel sounds, and the sounds French children find hardest ('th', 'h', 'r'), through chants, minimal pairs and games", "vocab": "simple words that show one target sound (ship/sheep, this/three, hat/at)"},
+        "mid": {"grammar": "sounds French speakers struggle with (/θ/ and /ð/, /h/, short vs long vowels, final consonants, -ed endings, silent letters), word stress and minimal pairs, with a first look at phonemic symbols", "vocab": "minimal pairs and word-stress patterns in everyday words"},
+        "advanced": {"grammar": "the phonemic chart, connected speech (linking, weak forms, elision), sentence stress and intonation, and reducing a French accent in fluent speech", "vocab": "phonemic transcription, stress-timed rhythm and intonation patterns"},
     }},
 ]

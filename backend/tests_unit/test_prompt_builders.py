@@ -17,10 +17,13 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from prompt_builders import (  # noqa: E402
+    build_exercise_type_sheet_prompt,
     build_script_prompt,
     exercise_type_spec,
     split_sheet_content,
     strip_leading_name_date_line,
+    strip_word_count,
+    sheets_common_context,
 )
 
 
@@ -162,6 +165,30 @@ class BuildScriptPromptTests(unittest.TestCase):
         prompt = build_script_prompt(level, 6, curriculum, ["speaking"], 60, 20, activity_types=["Games"])
         self.assertIn("Gesture/TPR is fine", prompt)
         self.assertNotIn("FUN & ENGAGEMENT FOR YOUNG LEARNERS", prompt)
+
+
+class Week6FixesTests(unittest.TestCase):
+    """Pins the fixes from the real 5ème Week 6 pack review (2026-09-26)."""
+    _LEVEL = {"label": "5ème", "cefr": "A2", "cycle": "Collège", "ages": "12-13", "band": 2}
+    _CUR = {"theme": "x", "grammar": "g", "vocab": "a, b", "block": "b", "date_range": "d"}
+
+    def test_exercise_sheet_title_must_name_the_exercise_type(self):
+        p = build_exercise_type_sheet_prompt("gapfill", self._LEVEL, self._CUR, 4, ["Games"], "x")
+        self.assertIn('exactly "Gap fill"', p)
+
+    def test_school_sheets_carry_content_safety_and_clarity_rules(self):
+        ctx = sheets_common_context(self._LEVEL, self._CUR, 4, ["Games"])
+        self.assertIn("CONTENT SAFETY", ctx)
+        self.assertIn("NEVER use strangers", ctx)
+        self.assertIn("CLARITY", ctx)
+
+    def test_adult_track_has_no_children_safety_line(self):
+        adult = dict(self._LEVEL, cycle="Adultes", band=3)
+        self.assertNotIn("CONTENT SAFETY", sheets_common_context(adult, self._CUR, 4, ["Games"]))
+
+    def test_model_word_count_is_stripped(self):
+        self.assertEqual(strip_word_count("Text here.\n(96 words)\nQuestions"), "Text here.\nQuestions")
+        self.assertEqual(strip_word_count("She said (3 words) but stayed."), "She said (3 words) but stayed.")
 
 
 if __name__ == "__main__":

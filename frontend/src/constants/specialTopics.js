@@ -10,4 +10,9 @@ export const SPECIAL_TOPICS = [
   { key: "relativeclauses", label: "Relative Clauses" },
   { key: "comparatives", label: "Comparatives & Superlatives" },
   { key: "questionformation", label: "Question Formation" },
+  { key: "irregularverbs", label: "Irregular Verbs" },
+  { key: "vocabbuilding", label: "Vocabulary Building" },
+  { key: "tensesrun", label: "Tenses Run-through" },
+  { key: "mocktest", label: "Mock Test" },
+  { key: "phonetics", label: "Pronunciation & Phonetics" },
 ];

@@ -25,6 +25,7 @@ class CurriculumResult(TypedDict):
     theme: Optional[str]
     grammar: Optional[str]
     vocab: Optional[str]
+    part_note: Optional[str]
     detailed: bool
     source: str
 
@@ -97,6 +98,7 @@ def get_curriculum_for_week(
                 "theme": topic["theme"],
                 "grammar": tier["grammar"],
                 "vocab": tier["vocab"],
+                "part_note": None,
                 "detailed": True,
                 "source": f"special topic override (not this week's curriculum) — {level['cefr']}-level content",
             }
@@ -137,6 +139,7 @@ def get_curriculum_for_week(
         "theme": detailed["theme"] if detailed else wk[curriculum_tier_key(level)],
         "grammar": detailed["grammar"] if detailed else None,
         "vocab": resolve_week_vocab(detailed["vocab"], week) if detailed else None,
+        "part_note": detailed.get("part_note") if detailed else None,
         "detailed": bool(detailed),
         "source": source,
     }

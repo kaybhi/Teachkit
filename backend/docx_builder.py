@@ -295,8 +295,19 @@ def sheet_key_to_docx_xml(content: str, letter_or_key: str, sheet_title: str) ->
     return xml
 
 
-def docx_header_xml(level_label: str, week: int, week_start: str, week_end: str) -> str:
-    return docx_p(text=f"theteachkit.com — {level_label} — Week {week} of 32 — {week_start} to {week_end}", after=200)
+def docx_header_xml(week_start: str, week_end: str) -> str:
+    return docx_p(text=f"theteachkit.com — {week_start} to {week_end}", after=200)
+
+
+def order_sheets_for_output(sheets: list) -> list:
+    """Sheets print/export in generation order EXCEPT the Speaking sheet
+    (free production, always letter 'A') — production goes last, not the
+    first thing after Name/Date (Kamal, 2026-09-24; ported from the source
+    engine's orderSheetsForOutput). exercise-type sheets have no 'letter'
+    key and are left untouched."""
+    production = [s for s in sheets if s.get("letter") == "A"]
+    rest = [s for s in sheets if s.get("letter") != "A"]
+    return rest + production
 
 
 def docx_page_break() -> str:

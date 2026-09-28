@@ -25,8 +25,11 @@ from prompt_builders import (
     build_single_sheet_prompt,
     build_exercise_type_sheet_prompt,
     build_extension_prompt,
+    sheets_common_context,
     split_sheet_content,
+    strip_word_count,
 )
+from sheet_plan import build_sheet_plan_prompt, fallback_sheet_plan, parse_sheet_plan
 from anthropic_client import generate as ai_generate, AnthropicGenerationError
 from holidays import get_holidays_for_year, compute_current_school_week
 
@@ -199,13 +202,14 @@ def is_pro(current: dict) -> bool:
 
 def cap_sheets_for_band(sheet_letters: list, exercise_types: list, band: int) -> tuple:
     """CEFR-band sheet cap — independent of subscription tier, applies to
-    Pro accounts too. Protects against cognitive overload for young/lower
-    bands (ported from the local engine's capSheetsForBand, 2026-09-18):
-    band 0-1 max 1 sheet, band 2-3 max 2, band 4 max 3 — regardless of how
-    many the subscription tier or the request would otherwise allow. Skill
-    sheets are trimmed first (kept in existing order), exercise-type sheets
-    fill any remaining room."""
+    Pro accounts too. No band caps sheet count as of 2026-09-18 (Kamal:
+    the sheet-count limit was never the point — simplifying the English
+    itself via BAND_CONSTRAINTS' grammar/vocab limits is what actually
+    helps French kids). max_sheets is None for every band, so this is a
+    pass-through; kept as a hook in case a band-specific cap is reinstated."""
     max_sheets = BAND_CONSTRAINTS[band]["max_sheets"]
+    if max_sheets is None:
+        return sheet_letters, exercise_types
     capped_letters = sheet_letters[:max_sheets]
     remaining = max(0, max_sheets - len(capped_letters))
     capped_exercise_types = exercise_types[:remaining]
@@ -563,6 +567,23 @@ _EXERCISE_TYPE_LABELS = {t["key"]: t["label"] for t in EXERCISE_TYPES}
 _VALID_EXERCISE_TYPES = set(_EXERCISE_TYPE_LABELS.keys())
 
 
+async def _plan_sheets(ids: list, level: dict, curriculum: dict, student_count: int, activity_types: list, week_num: int) -> dict:
+    """One quick planning call gives every sheet its own job, setting,
+    characters and vocabulary slice. Never raises — falls back to a
+    deterministic plan so lesson generation can't break on it."""
+    fallback = fallback_sheet_plan(ids, level, curriculum, week_num)
+    if len(ids) < 2:
+        return fallback
+    try:
+        context = sheets_common_context(level, curriculum, student_count, activity_types)
+        prompt = build_sheet_plan_prompt(ids, level, context, curriculum["theme"])
+        raw = await ai_generate(SCRIPT_SYSTEM_MSG, prompt, max_tokens=1500)
+        return parse_sheet_plan(raw, ids, fallback, level)
+    except Exception as e:  # noqa: BLE001 — planning is best-effort
+        logger.warning(f"sheet plan failed, using fallback: {e}")
+        return fallback
+
+
 async def _generate_lesson_pack(
     level: dict, week_num: int, curriculum: dict, current: dict, exercise_types: Optional[List[str]] = None
 ) -> dict:
@@ -585,6 +606,10 @@ async def _generate_lesson_pack(
 
     sheet_letters, exercise_types = cap_sheets_for_band(sheet_letters, exercise_types, level["band"])
 
+    plan = await _plan_sheets(
+        [letter for letter, _ in sheet_letters] + list(exercise_types), level, curriculum, student_count, activity_types, week_num
+    )
+
     script_prompt = build_script_prompt(
         level, week_num, curriculum, skills, duration, student_count, activity_types, extension_activity=extension_activity
     )
@@ -594,8 +619,8 @@ async def _generate_lesson_pack(
 
     async def gen_sheet(letter: str, title: str):
         script_excerpt = curriculum["theme"]  # cheap context; full script isn't generated yet when sheets fire in parallel
-        prompt = build_single_sheet_prompt(letter, level, curriculum, student_count, activity_types, script_excerpt)
-        content = await ai_generate(SCRIPT_SYSTEM_MSG, prompt, max_tokens=2048)
+        prompt = build_single_sheet_prompt(letter, level, curriculum, student_count, activity_types, script_excerpt, plan)
+        content = strip_word_count(await ai_generate(SCRIPT_SYSTEM_MSG, prompt, max_tokens=2048))
         main_lines, key_lines = split_sheet_content(content)
         return {
             "letter": letter,
@@ -607,8 +632,8 @@ async def _generate_lesson_pack(
 
     async def gen_exercise_sheet(key: str):
         script_excerpt = curriculum["theme"]
-        prompt = build_exercise_type_sheet_prompt(key, level, curriculum, student_count, activity_types, script_excerpt)
-        content = await ai_generate(SCRIPT_SYSTEM_MSG, prompt, max_tokens=2048)
+        prompt = build_exercise_type_sheet_prompt(key, level, curriculum, student_count, activity_types, script_excerpt, plan)
+        content = strip_word_count(await ai_generate(SCRIPT_SYSTEM_MSG, prompt, max_tokens=2048))
         main_lines, key_lines = split_sheet_content(content)
         return {
             "key": key,
@@ -717,8 +742,8 @@ async def export_docx(syllabus_id: str, week_num: int, doc: str = "script", curr
     level = LEVELS_BY_ID.get(syllabus_doc.get("level_id"))
     level_label = level["label"] if level else (syllabus_doc.get("class_level") or "")
     wk = get_week_info(week_num)
-    header_xml = docx.docx_header_xml(level_label, week_num, wk["start"], wk["end"])
-    all_sheets = list(pack.get("sheets") or []) + list(pack.get("exercise_sheets") or [])
+    header_xml = docx.docx_header_xml(wk["start"], wk["end"])
+    all_sheets = docx.order_sheets_for_output(list(pack.get("sheets") or []) + list(pack.get("exercise_sheets") or []))
 
     if doc == "script":
         body = header_xml + docx.docx_page_break() + docx.script_to_docx_xml(pack["teacher_script"])

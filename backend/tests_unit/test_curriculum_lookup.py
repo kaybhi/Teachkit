@@ -115,17 +115,38 @@ class GetCurriculumForWeekTests(unittest.TestCase):
         self.assertEqual(result["source"], "weekly curriculum plan (band 1)")
         self.assertIsNotNone(result["vocab"])
         self.assertIsNotNone(result["grammar"])
-        self.assertEqual(result["theme"], "All about me")
+        self.assertEqual(result["theme"], "All about me — greetings & names")
 
-    def test_school_band_topic_changes_within_2_weeks(self):
-        # The rule that motivated this fix: a real 5ème class was stuck on
-        # one theme for 7 straight weeks. No topic may now span more than 2.
+    def test_school_band_topic_spans_two_weeks_but_weeks_are_not_identical(self):
+        # A topic runs at most 2 weeks, and its two weeks must be genuinely
+        # different lessons (real 5ème weeks 5 and 6 came out identical).
         level = LEVELS_BY_ID["5e"]
-        themes = [get_curriculum_for_week(level, wk)["theme"] for wk in range(1, 9)]
-        self.assertEqual(themes[0], themes[1])
-        self.assertNotEqual(themes[1], themes[2])
-        self.assertEqual(themes[2], themes[3])
-        self.assertNotEqual(themes[3], themes[4])
+        rows = [get_curriculum_for_week(level, wk) for wk in range(1, 9)]
+        self.assertNotEqual(rows[0]["theme"], rows[1]["theme"])
+        self.assertNotEqual(rows[0]["vocab"], rows[1]["vocab"])
+        self.assertNotEqual(rows[0]["grammar"], rows[1]["grammar"])
+        self.assertNotEqual(rows[1]["theme"], rows[2]["theme"])
+
+    def test_week5_and_week6_of_5eme_are_different_lessons(self):
+        level = LEVELS_BY_ID["5e"]
+        w5 = get_curriculum_for_week(level, 5)
+        w6 = get_curriculum_for_week(level, 6)
+        self.assertNotEqual(w5["theme"], w6["theme"])
+        self.assertNotEqual(w5["vocab"], w6["vocab"])
+        self.assertNotEqual(w5["grammar"], w6["grammar"])
+        self.assertIn("week 1 of 2", w5["part_note"])
+        self.assertIn("LAST WEEK covered", w6["part_note"])
+
+    def test_every_school_band_has_32_weeks_with_no_repeated_neighbour_weeks(self):
+        from curriculum_data import SCHOOL_CURRICULUM_BY_BAND
+        for band, rows in SCHOOL_CURRICULUM_BY_BAND.items():
+            self.assertEqual(len(rows), 32, f"band {band}")
+            for prev, cur in zip(rows, rows[1:]):
+                self.assertNotEqual(
+                    (prev["theme"], prev["vocab"], prev["grammar"]),
+                    (cur["theme"], cur["vocab"], cur["grammar"]),
+                    f"band {band} week {cur['week']} repeats week {prev['week']}",
+                )
 
     def test_college_tier_now_differs_by_band_not_just_shared_string(self):
         # 6e (band 2) and a band-3/4 level must no longer share identical
